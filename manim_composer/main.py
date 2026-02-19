@@ -2,15 +2,14 @@
 
 import sys
 import os
-import subprocess
 import tempfile
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QButtonGroup, QGraphicsScene,
     QAbstractItemView, QGraphicsView, QListView,
 )
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
-from PyQt6.QtCore import Qt, QEvent
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QTextCursor
+from PyQt6.QtCore import Qt, QEvent, QProcess
 from PyQt6 import uic
 
 from manim_composer.views.canvas_items.mathtex_item import MathTexItem
@@ -122,6 +121,7 @@ class ManimComposerWindow(QMainWindow):
         self.centerTabBar.addTab("Canvas")
         self.centerTabBar.addTab("Code")
         self.centerTabBar.addTab("Output")
+        self.centerTabBar.addTab("Console")
         self.centerTabBar.currentChanged.connect(self.centerStack.setCurrentIndex)
 
     def _setup_tool_button_group(self):
@@ -317,13 +317,12 @@ class ManimComposerWindow(QMainWindow):
 
     def _preview_alive(self) -> bool:
         proc = getattr(self, "_preview_proc", None)
-        return proc is not None and proc.poll() is None
+        return proc is not None and proc.state() != QProcess.ProcessState.NotRunning
 
     def _kill_preview(self):
-        """Terminate any running preview process."""
+        """Kill the preview process immediately (no blocking wait)."""
         if self._preview_alive():
-            self._preview_proc.terminate()
-            self._preview_proc.wait(timeout=3)
+            self._preview_proc.kill()
         self._preview_proc = None
 
     def _dock_preview(self):
@@ -361,7 +360,7 @@ class ManimComposerWindow(QMainWindow):
             self._launch_preview()
 
     def _launch_preview(self):
-        """First launch: spawn manimgl with a new console + GL window."""
+        """First launch: spawn manimgl via QProcess, capturing output."""
         tmp_dir = tempfile.gettempdir()
         tmp = os.path.join(tmp_dir, "manim_composer_preview.py")
         launcher = os.path.join(tmp_dir, "manim_composer_launcher.py")
@@ -391,25 +390,15 @@ class ManimComposerWindow(QMainWindow):
             ))
 
         self.statusBar.showMessage("Launching manimgl preview…")
+        self.consolePane.clear()
 
-        try:
-            kwargs: dict = {}
-            if sys.platform == "win32":
-                kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
-
-            proc = subprocess.Popen(
-                [sys.executable, launcher],
-                **kwargs,
-            )
-            self._preview_proc = proc
-
-            from PyQt6.QtCore import QTimer
-            QTimer.singleShot(3000, self._check_preview_status)
-
-        except FileNotFoundError:
-            self.statusBar.showMessage(
-                "manimgl not found — install with: pip install manimgl", 5000
-            )
+        proc = QProcess(self)
+        proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        proc.readyReadStandardOutput.connect(self._read_preview_output)
+        proc.finished.connect(self._on_preview_finished)
+        proc.errorOccurred.connect(self._on_preview_error)
+        proc.start(sys.executable, [launcher])
+        self._preview_proc = proc
 
     def _replay_preview(self):
         """Hot-reload: write replay file, the running preview picks it up."""
@@ -422,22 +411,30 @@ class ManimComposerWindow(QMainWindow):
 
         self.statusBar.showMessage("Preview updated", 3000)
 
-    def _check_preview_status(self):
-        """Check if the preview process exited early (error)."""
-        proc = getattr(self, "_preview_proc", None)
-        if proc is None:
-            return
-        rc = proc.poll()
-        if rc is not None and rc != 0:
-            self.statusBar.showMessage(f"Preview failed (exit {rc})", 5000)
-            self.outputLog.setPlainText(
-                f"--- Preview error (exit code {rc}) ---\n\n"
-                "Check the console window for details."
-            )
-            self.centerTabBar.setCurrentIndex(2)  # switch to Output tab
-        elif rc == 0:
+    def _read_preview_output(self):
+        """Append new output from the preview process to the Console pane."""
+        data = self._preview_proc.readAllStandardOutput()
+        text = bytes(data).decode("utf-8", errors="replace")
+        cursor = self.consolePane.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.insertText(text)
+        self.consolePane.setTextCursor(cursor)
+        self.consolePane.ensureCursorVisible()
+
+    def _on_preview_finished(self, exit_code, _exit_status):
+        """Handle preview process exit."""
+        if exit_code != 0:
+            self.statusBar.showMessage(f"Preview failed (exit {exit_code})", 5000)
+            self.centerTabBar.setCurrentIndex(3)  # switch to Console tab
+        else:
             self.statusBar.showMessage("Preview finished", 3000)
-        # else: still running — all good
+
+    def _on_preview_error(self, error):
+        """Handle preview process startup errors."""
+        if error == QProcess.ProcessError.FailedToStart:
+            self.statusBar.showMessage(
+                "Failed to start preview — check Python/manimgl installation", 5000
+            )
 
     def _export_py(self):
         """File → Export to .py"""
