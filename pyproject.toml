@@ -1,0 +1,13 @@
+[project]
+name = "manim-composer"
+version = "0.1.0"
+description = "A PowerPoint-style visual editor for creating ManimGL animations"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.4.2",
+    "pyqt6>=6.10.2",
+]
+
+[project.scripts]
+manim-composer = "manim_composer.main:main"
