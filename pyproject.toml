@@ -5,9 +5,16 @@ description = "A PowerPoint-style visual editor for creating ManimGL animations"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "manimgl>=1.7.0",
     "numpy>=2.4.2",
     "pyqt6>=6.10.2",
+    "audioop-lts",
+    "setuptools<81",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project.scripts]
 manim-composer = "manim_composer.main:main"
