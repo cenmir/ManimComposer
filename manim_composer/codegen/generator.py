@@ -30,6 +30,10 @@ def _generate_body(scene_state: SceneState, indent: str = "") -> list[str]:
         if tracked.obj_type == "mathtex" and tracked.color and tracked.color.upper() != "#FFFFFF":
             lines.append(f'{indent}{name}.set_color("{tracked.color}")')
 
+        if tracked.obj_type == "mathtex" and tracked.font_size != 48:
+            scale = tracked.font_size / 48.0
+            lines.append(f"{indent}{name}.scale({scale:.4g})")
+
         # Position — read live from the canvas item
         pos = item.pos()
         mx = pos.x() / 100.0

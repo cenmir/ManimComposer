@@ -17,7 +17,7 @@ def _hex_to_dvipng_fg(color_hex: str) -> str:
     return f"rgb {c.redF():.3f} {c.greenF():.3f} {c.blueF():.3f}"
 
 
-def render_latex(latex: str, color: str = "#FFFFFF", dpi: int = 300) -> QPixmap | None:
+def render_latex(latex: str, color: str = "#FFFFFF", dpi: int = 600) -> QPixmap | None:
     """Render LaTeX to a transparent QPixmap via latex + dvipng.
 
     Returns None if the LaTeX toolchain is unavailable or compilation fails.
@@ -86,10 +86,16 @@ class MathTexItem(QGraphicsPixmapItem):
 
     _latex_available = None  # None = untested, True/False after first attempt
 
-    def __init__(self, latex: str = "F=ma", color: str = "#FFFFFF", parent=None):
+    # font_size=48 maps to 0.48 manim units tall — matches ManimGL's default Tex height.
+    _BASE_FONT_SIZE = 48
+
+    def __init__(self, latex: str = "F=ma", color: str = "#FFFFFF",
+                 font_size: int = 48, parent=None):
         super().__init__(parent)
         self.latex = latex
         self.color = color
+        self.font_size = font_size
+        self._base_pixmap: QPixmap | None = None
 
         self.setFlags(
             QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
@@ -97,6 +103,7 @@ class MathTexItem(QGraphicsPixmapItem):
             | QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
         )
         self.setCursor(Qt.CursorShape.SizeAllCursor)
+        self.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
         self._do_render()
 
     def set_latex(self, latex: str):
@@ -107,12 +114,28 @@ class MathTexItem(QGraphicsPixmapItem):
         self.color = color
         self._do_render()
 
+    def set_font_size(self, size: int):
+        """Update the displayed size without re-rendering LaTeX."""
+        self.font_size = size
+        if self._base_pixmap is not None:
+            self._apply_pixmap()
+
     def _do_render(self):
+        """Compile LaTeX (or fall back) and store the high-res base pixmap."""
         pm = None
         if MathTexItem._latex_available is not False:
             pm = render_latex(self.latex, self.color)
             MathTexItem._latex_available = pm is not None
         if pm is None:
             pm = render_fallback(self.latex, self.color)
+        self._base_pixmap = pm
+        self._apply_pixmap()
+
+    def _apply_pixmap(self):
+        """Scale the stored base pixmap to font_size pixels tall and set it."""
+        pm = self._base_pixmap
+        target_h = max(4, self.font_size)
+        if pm.height() != target_h:
+            pm = pm.scaledToHeight(target_h, Qt.TransformationMode.SmoothTransformation)
         self.setPixmap(pm)
         self.setOffset(-pm.width() / 2, -pm.height() / 2)

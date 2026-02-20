@@ -19,6 +19,7 @@ class PropertiesController(QObject):
         self.w = window
         self.state = scene_state
         self._current_name: str | None = None
+        self._current_anim_index: int | None = None
         self._updating = False
 
         self._latex_timer = QTimer(self)
@@ -31,13 +32,24 @@ class PropertiesController(QObject):
         self.w.canvas_scene.selectionChanged.connect(self._on_selection_changed)
         self.w.canvas_scene.changed.connect(self._on_scene_changed)
 
+        # Object property widgets
         self.w.editObjName.editingFinished.connect(self._on_name_edited)
         self.w.editLatexCode.textChanged.connect(self._on_latex_edited)
         self.w.btnTextColor.clicked.connect(self._on_color_btn_clicked)
+        self.w.spinFontSize.valueChanged.connect(self._on_font_size_changed)
         self.w.spinPosX.valueChanged.connect(self._on_position_changed)
         self.w.spinPosY.valueChanged.connect(self._on_position_changed)
 
-    # --- Selection ---
+        # Animation list selection
+        self.w.animationsList.currentRowChanged.connect(self._on_animation_row_changed)
+
+        # Animation property widgets
+        self.w.comboAnimTarget.currentTextChanged.connect(self._on_anim_target_changed)
+        self.w.comboAnimTypeProps.currentTextChanged.connect(self._on_anim_type_changed)
+        self.w.spinAnimDuration.valueChanged.connect(self._on_anim_duration_changed)
+        self.w.comboEasing.currentTextChanged.connect(self._on_anim_easing_changed)
+
+    # --- Canvas selection ---
 
     def _on_selection_changed(self):
         try:
@@ -47,9 +59,13 @@ class PropertiesController(QObject):
         if len(selected) == 1:
             name = self.state.find_name_for_item(selected[0])
             if name:
+                self._current_anim_index = None
                 self._show_properties(name)
                 return
         self._current_name = None
+        # If an animation is being edited, leave the anim panel visible
+        if self._current_anim_index is not None:
+            return
         self.w.propertiesStack.setCurrentIndex(0)
 
     def _show_properties(self, name: str):
@@ -65,13 +81,14 @@ class PropertiesController(QObject):
         self.w.editLatexCode.setPlainText(tracked.latex)
         self.w.btnTextColor.setText(tracked.color)
         self.w.btnTextColor.setStyleSheet(f"background-color: {tracked.color};")
+        self.w.spinFontSize.setValue(tracked.font_size)
 
         pos = item.pos()
         self.w.spinPosX.setValue(pos.x() / 100.0)
         self.w.spinPosY.setValue(-pos.y() / 100.0)
         self._updating = False
 
-    # --- Property edits ---
+    # --- Object property edits ---
 
     def _on_name_edited(self):
         if self._updating or not self._current_name:
@@ -124,6 +141,15 @@ class PropertiesController(QObject):
             self.w.btnTextColor.setText(hex_color)
             self.w.btnTextColor.setStyleSheet(f"background-color: {hex_color};")
 
+    def _on_font_size_changed(self, value: int):
+        if self._updating or not self._current_name:
+            return
+        tracked = self.state.get_tracked(self._current_name)
+        item = self.state.get_item(self._current_name)
+        if tracked and item:
+            tracked.font_size = value
+            item.set_font_size(value)
+
     def _on_position_changed(self):
         if self._updating or not self._current_name:
             return
@@ -148,3 +174,94 @@ class PropertiesController(QObject):
                 self._updating = False
         except RuntimeError:
             return
+
+    # --- Animation selection ---
+
+    def _on_animation_row_changed(self, row: int):
+        if row < 0:
+            self._current_anim_index = None
+            # Fall back to showing the selected canvas object if any
+            try:
+                selected = self.w.canvas_scene.selectedItems()
+            except RuntimeError:
+                return
+            if len(selected) == 1:
+                name = self.state.find_name_for_item(selected[0])
+                if name:
+                    self._show_properties(name)
+                    return
+            if not self._current_name:
+                self.w.propertiesStack.setCurrentIndex(0)
+            return
+
+        anims = self.state.all_animations()
+        if row >= len(anims):
+            return
+
+        self._current_anim_index = row
+        self._current_name = None  # canvas object props yield to animation props
+        self._show_anim_properties(row)
+
+    def _show_anim_properties(self, row: int):
+        anims = self.state.all_animations()
+        if row >= len(anims):
+            return
+        anim = anims[row]
+
+        self._updating = True
+        self.w.propertiesStack.setCurrentIndex(3)  # propsAnimPage
+
+        # Repopulate target combo with current object names
+        self.w.comboAnimTarget.clear()
+        for name in self.state.object_names():
+            self.w.comboAnimTarget.addItem(name)
+        self.w.comboAnimTarget.setCurrentText(anim.target_name)
+
+        self.w.comboAnimTypeProps.setCurrentText(anim.anim_type)
+        self.w.spinAnimDuration.setValue(anim.duration)
+        self.w.comboEasing.setCurrentText(anim.easing)
+        self._updating = False
+
+    # --- Animation property edits ---
+
+    def _on_anim_target_changed(self, text: str):
+        if self._updating or self._current_anim_index is None or not text:
+            return
+        anims = self.state.all_animations()
+        if 0 <= self._current_anim_index < len(anims):
+            anims[self._current_anim_index].target_name = text
+            self._refresh_anim_list_item(self._current_anim_index)
+
+    def _on_anim_type_changed(self, text: str):
+        if self._updating or self._current_anim_index is None or not text:
+            return
+        anims = self.state.all_animations()
+        if 0 <= self._current_anim_index < len(anims):
+            anims[self._current_anim_index].anim_type = text
+            self._refresh_anim_list_item(self._current_anim_index)
+
+    def _on_anim_duration_changed(self, value: float):
+        if self._updating or self._current_anim_index is None:
+            return
+        anims = self.state.all_animations()
+        if 0 <= self._current_anim_index < len(anims):
+            anims[self._current_anim_index].duration = value
+            self._refresh_anim_list_item(self._current_anim_index)
+
+    def _on_anim_easing_changed(self, text: str):
+        if self._updating or self._current_anim_index is None or not text:
+            return
+        anims = self.state.all_animations()
+        if 0 <= self._current_anim_index < len(anims):
+            anims[self._current_anim_index].easing = text
+
+    def _refresh_anim_list_item(self, row: int):
+        """Update a single animation list row's display text."""
+        anims = self.state.all_animations()
+        if 0 <= row < len(anims):
+            anim = anims[row]
+            list_item = self.w.animationsList.item(row)
+            if list_item:
+                list_item.setText(
+                    f"{row + 1}. {anim.anim_type}({anim.target_name}) — {anim.duration:.1f}s"
+                )

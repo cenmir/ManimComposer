@@ -8,14 +8,17 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QButtonGroup, QGraphicsScene,
     QAbstractItemView, QGraphicsView, QListView,
 )
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QTextCursor
-from PyQt6.QtCore import Qt, QEvent, QProcess
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QTextCursor, QCursor
+from PyQt6.QtCore import Qt, QEvent, QProcess, QPointF
 from PyQt6 import uic
+
+from PyQt6.QtCore import QProcessEnvironment
 
 from manim_composer.views.canvas_items.mathtex_item import MathTexItem
 from manim_composer.models.scene_state import SceneState, TrackedObject, AnimationEntry
 from manim_composer.controllers.properties_controller import PropertiesController
 from manim_composer.codegen.generator import generate_manimgl_code, generate_replay_code
+from manim_composer import latex_manager
 
 # Launcher script template for manimgl preview.
 # Patches the -no-pdf issue on MiKTeX before running manimgl.
@@ -93,11 +96,13 @@ class ManimComposerWindow(QMainWindow):
 
         # MVP wiring
         self.scene_state = SceneState()
+        self._clipboard: dict | None = None
         self._register_default_item(default_item)
         self.props_controller = PropertiesController(self, self.scene_state)
         self._setup_animations_panel()
         self._setup_code_generation()
         self._setup_delete_action()
+        self._setup_copy_paste()
         self._setup_preview()
 
     def _fix_widget_enums(self):
@@ -241,12 +246,14 @@ class ManimComposerWindow(QMainWindow):
         self.scene_state.register(name, tracked, item)
 
     def _setup_animations_panel(self):
-        """Wire the animation list buttons."""
+        """Wire the animation list buttons and drag-drop reorder sync."""
         self.btnAddAnim.clicked.connect(self._add_animation)
         self.btnDeleteAnim.clicked.connect(self._delete_animation)
         self.btnMoveAnimUp.clicked.connect(lambda: self._move_animation(-1))
         self.btnMoveAnimDown.clicked.connect(lambda: self._move_animation(1))
         self.btnAddAnimation.clicked.connect(self._add_animation)
+        # Sync drag-drop reorder back to SceneState
+        self.animationsList.model().rowsMoved.connect(self._on_anim_rows_moved)
 
     def _add_animation(self):
         """Add an animation for the currently selected canvas object."""
@@ -281,6 +288,25 @@ class ManimComposerWindow(QMainWindow):
             if 0 <= new_row < self.animationsList.count():
                 self.animationsList.setCurrentRow(new_row)
 
+    def _on_anim_rows_moved(self, _src_parent, start, _end, _dst_parent, dest_row):
+        """Sync drag-drop reorder in the list widget back to SceneState."""
+        # Qt rowsMoved: item at `start`..`end` moves to before `dest_row`.
+        # For a single-item drag (start == end), the new index is:
+        #   dest_row       if dest_row < start  (moved up)
+        #   dest_row - 1   if dest_row > end    (moved down)
+        old_idx = start
+        new_idx = dest_row if dest_row < start else dest_row - 1
+        self.scene_state.move_animation_to(old_idx, new_idx)
+        # Renumber all list labels to match the new order
+        for i, anim in enumerate(self.scene_state.all_animations()):
+            item = self.animationsList.item(i)
+            if item:
+                item.setText(f"{i + 1}. {anim.anim_type}({anim.target_name}) — {anim.duration:.1f}s")
+        # Keep the controller's selection index in sync
+        ctrl = self.props_controller
+        if ctrl._current_anim_index == old_idx:
+            ctrl._current_anim_index = new_idx
+
     def _refresh_animations_list(self):
         """Rebuild the animationsList widget from scene state."""
         self.animationsList.clear()
@@ -300,6 +326,57 @@ class ManimComposerWindow(QMainWindow):
     def _setup_delete_action(self):
         """Wire the Delete action (Del key) to remove selected items."""
         self.actionDelete.triggered.connect(self._delete_selected)
+
+    def _setup_copy_paste(self):
+        self.actionCopy.triggered.connect(self._copy_selected)
+        self.actionPaste.triggered.connect(self._paste_clipboard)
+
+    def _copy_selected(self):
+        selected = self.canvas_scene.selectedItems()
+        if len(selected) != 1:
+            return
+        name = self.scene_state.find_name_for_item(selected[0])
+        if not name:
+            return
+        tracked = self.scene_state.get_tracked(name)
+        if not tracked or tracked.obj_type != "mathtex":
+            return
+        pos = selected[0].pos()
+        self._clipboard = {
+            "latex": tracked.latex,
+            "color": tracked.color,
+            "font_size": tracked.font_size,
+            "pos_x": pos.x(),
+            "pos_y": pos.y(),
+        }
+        self.statusBar.showMessage("Copied", 2000)
+
+    def _paste_clipboard(self):
+        if not self._clipboard:
+            return
+        cb = self._clipboard
+
+        # Paste at cursor if it's inside the scene rect, otherwise offset from original
+        cursor_scene = self.canvasView.mapToScene(
+            self.canvasView.mapFromGlobal(QCursor.pos())
+        )
+        if self.canvas_scene.sceneRect().contains(cursor_scene):
+            paste_pos = cursor_scene
+        else:
+            paste_pos = QPointF(cb["pos_x"] + 30, cb["pos_y"] - 30)
+
+        name = self.scene_state.next_name("eq")
+        item = MathTexItem(latex=cb["latex"], color=cb["color"], font_size=cb["font_size"])
+        self.canvas_scene.addItem(item)
+        item.setPos(paste_pos)
+        tracked = TrackedObject(
+            name=name, obj_type="mathtex",
+            latex=cb["latex"], color=cb["color"], font_size=cb["font_size"],
+        )
+        self.scene_state.register(name, tracked, item)
+        self.canvas_scene.clearSelection()
+        item.setSelected(True)
+        self.statusBar.showMessage(f"Pasted as {name}", 2000)
 
     def _delete_selected(self):
         for item in self.canvas_scene.selectedItems():
@@ -329,9 +406,6 @@ class ManimComposerWindow(QMainWindow):
         """Reposition the ManimGL preview window to the right of the Composer."""
         if not self._preview_alive():
             self.statusBar.showMessage("No preview running", 3000)
-            return
-        if sys.platform != "win32":
-            self.statusBar.showMessage("Dock is only supported on Windows", 3000)
             return
 
         import ctypes
@@ -394,6 +468,13 @@ class ManimComposerWindow(QMainWindow):
 
         proc = QProcess(self)
         proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        # Ensure TinyTeX binaries are on PATH for the preview subprocess
+        latex_env = latex_manager.get_latex_env()
+        if latex_env:
+            qenv = QProcessEnvironment()
+            for k, v in latex_env.items():
+                qenv.insert(k, v)
+            proc.setProcessEnvironment(qenv)
         proc.readyReadStandardOutput.connect(self._read_preview_output)
         proc.finished.connect(self._on_preview_finished)
         proc.errorOccurred.connect(self._on_preview_error)
@@ -454,8 +535,18 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Manim Composer")
 
+    # Configure PATH for a local TinyTeX install (fast, no-op if system LaTeX)
+    latex_manager.ensure_path()
+
     window = ManimComposerWindow()
     window.show()
+
+    # Offer to install TinyTeX if no LaTeX distribution is found
+    if latex_manager.detect() == latex_manager.NONE:
+        if latex_manager.offer_install(window):
+            if latex_manager.run_install(window):
+                # Reset render cache so the canvas retries LaTeX
+                MathTexItem._latex_available = None
 
     sys.exit(app.exec())
 

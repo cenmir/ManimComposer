@@ -10,6 +10,7 @@ class TrackedObject:
     obj_type: str    # "mathtex" for now
     latex: str
     color: str       # hex, e.g. "#FFFFFF"
+    font_size: int = 48  # UI font size; scale = font_size / 48
 
 
 @dataclass
@@ -79,6 +80,16 @@ class SceneState:
             self._animations[index], self._animations[new_index] = (
                 self._animations[new_index], self._animations[index]
             )
+
+    def move_animation_to(self, from_idx: int, to_idx: int) -> None:
+        """Move animation from from_idx to to_idx (direct reorder, e.g. drag-drop)."""
+        if from_idx == to_idx:
+            return
+        n = len(self._animations)
+        if not (0 <= from_idx < n and 0 <= to_idx < n):
+            return
+        anim = self._animations.pop(from_idx)
+        self._animations.insert(to_idx, anim)
 
     def all_animations(self) -> list[AnimationEntry]:
         return list(self._animations)
