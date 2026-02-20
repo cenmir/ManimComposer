@@ -2,23 +2,24 @@
 
 A PowerPoint-style visual editor for creating [ManimGL](https://github.com/3b1b/manim) animations. Design scenes by placing and manipulating objects on a canvas, define animations, and export valid ManimGL Python code.
 
-## Features (Phase 1 — Current)
+## Features
 
 - **Visual canvas** with black background matching ManimGL's coordinate system
 - **LaTeX rendering** via `latex` + `dvipng` pipeline (falls back to styled text if LaTeX is not installed)
 - **Tool-based object placement** — select MathTex tool, click canvas to place
-- **Qt Designer layout** — toolbar tabs (Design / Animation), scenes panel, animations panel, properties panel, code editor pane
 - **Drag & drop** — items are selectable and movable on canvas
+- **Properties panel** — edit LaTeX, color, font size, and position for selected objects
+- **Animation system** — add, reorder (drag-drop), and edit animations with target, type, duration, and easing
+- **ManimGL code generation** — export valid Python code from your scene
+- **Live preview** with embedded console output
+- **Copy & paste** canvas objects (Ctrl+C / Ctrl+V)
+- **LaTeX manager** — auto-detects system LaTeX or offers to install TinyTeX
 
 ## Planned
 
-See [manim_composer/PLAN.md](manim_composer/PLAN.md) for the full 8-phase roadmap, including:
+See [manim_composer/PLAN.md](manim_composer/PLAN.md) for the full roadmap, including:
 
-- Properties panel with right-click editing
-- ManimGL code generation
 - Multi-scene support with thumbnails
-- Animation system (FadeIn, Write, ShowCreation, Transform, etc.)
-- **Live preview** with persistent ManimGL subprocess and checkpoint/restore (inspired by 3b1b's `checkpoint_paste` workflow)
 - Save/load `.manim` project files
 
 ## Requirements
@@ -32,7 +33,7 @@ See [manim_composer/PLAN.md](manim_composer/PLAN.md) for the full 8-phase roadma
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd ManimStudio
+cd ManimComposer
 
 # Install dependencies and run
 uv sync
@@ -51,14 +52,18 @@ uv run manim-composer
 manim_composer/
 ├── main.py                        # Entry point (QMainWindow, canvas setup)
 ├── main_window.ui                 # Qt Designer layout
+├── latex_manager.py               # LaTeX detection and TinyTeX installer
 ├── PLAN.md                        # Implementation roadmap
 ├── views/
 │   └── canvas_items/
 │       └── mathtex_item.py        # LaTeX → PNG rendering pipeline
-├── models/                        # Data model (future)
-├── controllers/                   # Business logic (future)
-├── codegen/                       # ManimGL code generation (future)
-└── preview/                       # Live preview integration (future)
+├── models/
+│   └── scene_state.py             # Scene data model (objects, animations)
+├── controllers/
+│   └── properties_controller.py   # Properties & animation panel logic
+├── codegen/
+│   └── generator.py               # ManimGL code generation
+└── preview/                       # Live preview integration
 ```
 
 ## License
