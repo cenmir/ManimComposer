@@ -22,20 +22,24 @@ See [manim_composer/PLAN.md](manim_composer/PLAN.md) for the full roadmap, inclu
 - Multi-scene support with thumbnails
 - Save/load `.manim` project files
 
-## Requirements
+## Quick Install (Windows)
 
-- Python 3.13+
-- [uv](https://docs.astral.sh/uv/) for project management
-- LaTeX distribution (MiKTeX or TeX Live) for full MathTex rendering (optional — text fallback provided)
+Run this in PowerShell — it installs everything (uv, Python, dependencies) automatically:
 
-## Getting Started
+```powershell
+irm https://raw.githubusercontent.com/cenmir/ManimComposer/main/install.ps1 | iex
+```
+
+LaTeX (TinyTeX) is auto-installed on first launch. No manual setup needed.
+
+## Manual Install
+
+If you prefer to set things up yourself:
 
 ```bash
-# Clone the repository
-git clone <repo-url>
+# Prerequisites: Python 3.13+ and uv (https://docs.astral.sh/uv/)
+git clone https://github.com/cenmir/ManimComposer.git
 cd ManimComposer
-
-# Install dependencies and run
 uv sync
 uv run manim-composer
 ```
