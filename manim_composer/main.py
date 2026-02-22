@@ -328,6 +328,8 @@ class ManimComposerWindow(QMainWindow):
             self.btnSceneBgColor.setText(hex_color)
             self.btnSceneBgColor.setStyleSheet(f"background-color: {hex_color};")
             self.canvas_scene.setBackgroundBrush(QBrush(QColor(hex_color)))
+            if self._preview_alive():
+                self._replay_preview()
 
     # --- Render settings ---
 
@@ -440,6 +442,7 @@ class ManimComposerWindow(QMainWindow):
         self._kill_preview()
         if self._render_proc and self._render_proc.state() != QProcess.ProcessState.NotRunning:
             self._render_proc.kill()
+            self._render_proc.waitForFinished(3000)
         super().closeEvent(event)
 
     def showEvent(self, event):
@@ -715,9 +718,10 @@ class ManimComposerWindow(QMainWindow):
         return proc is not None and proc.state() != QProcess.ProcessState.NotRunning
 
     def _kill_preview(self):
-        """Kill the preview process immediately (no blocking wait)."""
+        """Kill the preview process and wait for it to exit."""
         if self._preview_alive():
             self._preview_proc.kill()
+            self._preview_proc.waitForFinished(3000)
         self._preview_proc = None
         self._dock_hwnd = None
         self.btnDockPreview.setChecked(False)
@@ -857,7 +861,8 @@ class ManimComposerWindow(QMainWindow):
 
     def _replay_preview(self):
         """Hot-reload: write replay file, the running preview picks it up."""
-        replay = generate_replay_code(self.scene_state)
+        bg_color = self._scenes[self._current_scene_idx].get("bg_color", "#000000")
+        replay = generate_replay_code(self.scene_state, bg_color=bg_color)
         tmp_dir = tempfile.gettempdir()
         replay_file = os.path.join(tmp_dir, "manim_composer_replay.py")
 

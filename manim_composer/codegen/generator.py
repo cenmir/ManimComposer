@@ -145,6 +145,7 @@ def generate_manimgl_code(
         lines.append("                if _mt > _lm:")
         lines.append("                    _lm = _mt")
         lines.append("                    exec(open(_rp).read())")
+        lines.append("                    self.update_frame(dt=0, force_draw=True)")
         lines.append("            except FileNotFoundError:")
         lines.append("                pass")
         lines.append("            _time.sleep(0.02)")
@@ -180,16 +181,22 @@ def generate_manimce_code(
     return "\n".join(lines) + "\n"
 
 
-def generate_replay_code(scene_state: SceneState) -> str:
+def generate_replay_code(scene_state: SceneState, bg_color: str = "#000000") -> str:
     """Generate a replay snippet to hot-reload into a running preview.
 
     Clears the scene and re-executes the construct body.
     """
     lines: list[str] = [
         "self.clear()",
-        "self.add(Rectangle(width=FRAME_WIDTH, height=FRAME_HEIGHT,"
-        " stroke_color=WHITE, stroke_width=1))",
     ]
+    if bg_color and bg_color.upper() != "#000000":
+        lines.append(f'self.camera.background_rgba = color_to_rgba("{bg_color}")')
+    else:
+        lines.append('self.camera.background_rgba = color_to_rgba("#000000")')
+    lines.append(
+        "self.add(Rectangle(width=FRAME_WIDTH, height=FRAME_HEIGHT,"
+        " stroke_color=WHITE, stroke_width=1))"
+    )
     body = _generate_body(scene_state, indent="")
     lines.extend(body)
     return "\n".join(lines) + "\n"

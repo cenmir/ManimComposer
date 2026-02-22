@@ -19,6 +19,9 @@ build/
 .DS_Store
 Thumbs.db
 
+# media
+media/*
+
 # Project-specific: AI working docs (not part of the codebase)
 3b1b_workflow_analysis.md
 GEMINI.md

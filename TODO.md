@@ -11,4 +11,8 @@ gear_1.set_points_as_corners(pts)
 gear_1.set_stroke(WHITE, width=2)
 gear_1.set_fill(fill_color, opacity=1)
 
-I want to be able to test the whole install process on a clean machine. I want to make an installer for the manim composer. I want a one-liner that grabs manim composer from github and installs it. A powershell script should install uv, python, and then manim composer. Look at https://github.com/cenmir/python-dev-installer for inspiration.
+
+Add Mac and Linux installers.
+
+
+Export to PowerPoint -> exports each scene as a MP¤ video or as a PNG depending on if it is a still image or animation. Then it creates a PowerPoint file with each scene as a slide, and the video or image embedded in the slide.
