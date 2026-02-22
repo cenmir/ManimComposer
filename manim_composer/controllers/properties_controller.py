@@ -17,7 +17,6 @@ class PropertiesController(QObject):
     def __init__(self, window: QMainWindow, scene_state: SceneState):
         super().__init__(window)
         self.w = window
-        self.state = scene_state
         self._current_name: str | None = None
         self._current_anim_index: int | None = None
         self._updating = False
@@ -27,6 +26,10 @@ class PropertiesController(QObject):
         self._latex_timer.timeout.connect(self._apply_latex_change)
 
         self._connect_signals()
+
+    @property
+    def state(self):
+        return self.w.scene_state
 
     def _connect_signals(self):
         self.w.canvas_scene.selectionChanged.connect(self._on_selection_changed)
@@ -140,6 +143,7 @@ class PropertiesController(QObject):
             item.set_color(hex_color)
             self.w.btnTextColor.setText(hex_color)
             self.w.btnTextColor.setStyleSheet(f"background-color: {hex_color};")
+            self.w._refresh_code_editors()
 
     def _on_font_size_changed(self, value: int):
         if self._updating or not self._current_name:
@@ -149,6 +153,7 @@ class PropertiesController(QObject):
         if tracked and item:
             tracked.font_size = value
             item.set_font_size(value)
+            self.w._refresh_code_editors()
 
     def _on_position_changed(self):
         if self._updating or not self._current_name:
@@ -158,6 +163,7 @@ class PropertiesController(QObject):
             x = self.w.spinPosX.value() * 100.0
             y = -self.w.spinPosY.value() * 100.0
             item.setPos(x, y)
+            self.w._refresh_code_editors()
 
     # --- Drag sync ---
 
@@ -172,6 +178,7 @@ class PropertiesController(QObject):
                 self.w.spinPosX.setValue(pos.x() / 100.0)
                 self.w.spinPosY.setValue(-pos.y() / 100.0)
                 self._updating = False
+                self.w._refresh_code_editors()
         except RuntimeError:
             return
 
@@ -220,6 +227,13 @@ class PropertiesController(QObject):
         self.w.comboAnimTypeProps.setCurrentText(anim.anim_type)
         self.w.spinAnimDuration.setValue(anim.duration)
         self.w.comboEasing.setCurrentText(anim.easing)
+
+        # Hide irrelevant fields for Wait/Add
+        is_wait = anim.anim_type == "Wait"
+        is_add = anim.anim_type == "Add"
+        self.w.comboEasing.setEnabled(not is_wait and not is_add)
+        self.w.spinAnimDuration.setEnabled(not is_add)
+        self.w.comboAnimTarget.setEnabled(not is_wait)
         self._updating = False
 
     # --- Animation property edits ---
@@ -231,6 +245,7 @@ class PropertiesController(QObject):
         if 0 <= self._current_anim_index < len(anims):
             anims[self._current_anim_index].target_name = text
             self._refresh_anim_list_item(self._current_anim_index)
+            self.w._refresh_code_editors()
 
     def _on_anim_type_changed(self, text: str):
         if self._updating or self._current_anim_index is None or not text:
@@ -238,7 +253,14 @@ class PropertiesController(QObject):
         anims = self.state.all_animations()
         if 0 <= self._current_anim_index < len(anims):
             anims[self._current_anim_index].anim_type = text
+            # Toggle field availability based on type
+            is_wait = text == "Wait"
+            is_add = text == "Add"
+            self.w.comboEasing.setEnabled(not is_wait and not is_add)
+            self.w.spinAnimDuration.setEnabled(not is_add)
+            self.w.comboAnimTarget.setEnabled(not is_wait)
             self._refresh_anim_list_item(self._current_anim_index)
+            self.w._refresh_code_editors()
 
     def _on_anim_duration_changed(self, value: float):
         if self._updating or self._current_anim_index is None:
@@ -247,6 +269,7 @@ class PropertiesController(QObject):
         if 0 <= self._current_anim_index < len(anims):
             anims[self._current_anim_index].duration = value
             self._refresh_anim_list_item(self._current_anim_index)
+            self.w._refresh_code_editors()
 
     def _on_anim_easing_changed(self, text: str):
         if self._updating or self._current_anim_index is None or not text:
@@ -254,6 +277,7 @@ class PropertiesController(QObject):
         anims = self.state.all_animations()
         if 0 <= self._current_anim_index < len(anims):
             anims[self._current_anim_index].easing = text
+            self.w._refresh_code_editors()
 
     def _refresh_anim_list_item(self, row: int):
         """Update a single animation list row's display text."""
@@ -262,6 +286,10 @@ class PropertiesController(QObject):
             anim = anims[row]
             list_item = self.w.animationsList.item(row)
             if list_item:
-                list_item.setText(
-                    f"{row + 1}. {anim.anim_type}({anim.target_name}) — {anim.duration:.1f}s"
-                )
+                if anim.anim_type == "Add":
+                    text = f"{row + 1}. Add({anim.target_name})"
+                elif anim.anim_type == "Wait":
+                    text = f"{row + 1}. Wait — {anim.duration:.1f}s"
+                else:
+                    text = f"{row + 1}. {anim.anim_type}({anim.target_name}) — {anim.duration:.1f}s"
+                list_item.setText(text)

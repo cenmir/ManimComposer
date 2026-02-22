@@ -319,6 +319,16 @@
           </property>
           <item>
            <property name="text">
+            <string>Add</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Wait</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
             <string>FadeIn</string>
            </property>
           </item>
@@ -413,6 +423,9 @@
             <width>60</width>
             <height>36</height>
            </size>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
           </property>
           <property name="toolTip">
            <string>Dock preview window to the right of the Composer</string>
@@ -568,19 +581,6 @@
          <item>
           <layout class="QHBoxLayout" name="animButtonLayout">
            <item>
-            <widget class="QPushButton" name="btnAddAnim">
-             <property name="maximumSize">
-              <size>
-               <width>70</width>
-               <height>28</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>+ Anim</string>
-             </property>
-            </widget>
-           </item>
-           <item>
             <widget class="QPushButton" name="btnDeleteAnim">
              <property name="maximumSize">
               <size>
@@ -712,13 +712,48 @@
                </font>
               </property>
               <property name="styleSheet">
-               <string>QPlainTextEdit { background-color: #1e1e2e; color: #cdd6f4; }</string>
+               <string>QPlainTextEdit { background-color: #272822; color: #F8F8F2; }</string>
               </property>
               <property name="readOnly">
                <bool>false</bool>
               </property>
               <property name="placeholderText">
                <string># ManimGL code will appear here...</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="codeCEPage">
+           <layout class="QVBoxLayout" name="codeCEPageLayout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QPlainTextEdit" name="codeEditorCE">
+              <property name="font">
+               <font>
+                <family>Consolas</family>
+                <pointsize>11</pointsize>
+               </font>
+              </property>
+              <property name="styleSheet">
+               <string>QPlainTextEdit { background-color: #272822; color: #F8F8F2; }</string>
+              </property>
+              <property name="readOnly">
+               <bool>false</bool>
+              </property>
+              <property name="placeholderText">
+               <string># Manim Community code will appear here...</string>
               </property>
              </widget>
             </item>
@@ -747,7 +782,7 @@
                </font>
               </property>
               <property name="styleSheet">
-               <string>QPlainTextEdit { background-color: #1e1e2e; color: #a6e3a1; }</string>
+               <string>QPlainTextEdit { background-color: #272822; color: #A6E22E; }</string>
               </property>
               <property name="readOnly">
                <bool>true</bool>
@@ -782,7 +817,7 @@
                </font>
               </property>
               <property name="styleSheet">
-               <string>QPlainTextEdit { background-color: #1e1e2e; color: #cdd6f4; }</string>
+               <string>QPlainTextEdit { background-color: #272822; color: #F8F8F2; }</string>
               </property>
               <property name="readOnly">
                <bool>true</bool>
@@ -1187,6 +1222,16 @@ Click an object on the canvas or right-click to edit its properties.</string>
             </item>
             <item row="1" column="1">
              <widget class="QComboBox" name="comboAnimTypeProps">
+              <item>
+               <property name="text">
+                <string>Add</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Wait</string>
+               </property>
+              </item>
               <item>
                <property name="text">
                 <string>FadeIn</string>

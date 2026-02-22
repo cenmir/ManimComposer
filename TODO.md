@@ -1,2 +1,4 @@
-- Include TinyTeX
 - Tex rotation
+- Code Community
+- Syntax highlighting
+- manimgl preview windows docked to main window

@@ -1,4 +1,4 @@
-"""ManimGL code generation from SceneState."""
+"""Code generation from SceneState for ManimGL and Manim Community."""
 
 from __future__ import annotations
 from typing import TYPE_CHECKING
@@ -7,8 +7,22 @@ if TYPE_CHECKING:
     from manim_composer.models.scene_state import SceneState
 
 
-def _generate_body(scene_state: SceneState, indent: str = "") -> list[str]:
-    """Generate the construct() body lines (objects + animations)."""
+_CE_ANIM_NAMES: dict[str, str] = {
+    "ShowCreation": "Create",
+}
+
+
+def _generate_body(
+    scene_state: SceneState,
+    indent: str = "",
+    anim_map: dict[str, str] | None = None,
+    ce: bool = False,
+) -> list[str]:
+    """Generate the construct() body lines (objects + animations).
+
+    *anim_map* optionally remaps animation type names (e.g. for CE).
+    *ce* uses Manim Community constructors (MathTex instead of Tex).
+    """
     lines: list[str] = []
     objects = scene_state.all_objects()
     animations = scene_state.all_animations()
@@ -23,7 +37,8 @@ def _generate_body(scene_state: SceneState, indent: str = "") -> list[str]:
             continue
 
         if tracked.obj_type == "mathtex":
-            constructor = f'Tex(r"{tracked.latex}")'
+            cls = "MathTex" if ce else "Tex"
+            constructor = f'{cls}(r"{tracked.latex}")'
 
         lines.append(f"{indent}{name} = {constructor}")
 
@@ -46,7 +61,20 @@ def _generate_body(scene_state: SceneState, indent: str = "") -> list[str]:
     # --- Animations ---
     if animations:
         for anim in animations:
-            anim_call = f"{anim.anim_type}({anim.target_name})"
+            if anim.anim_type == "Add":
+                lines.append(f"{indent}self.add({anim.target_name})")
+                continue
+            if anim.anim_type == "Wait":
+                if abs(anim.duration - 1.0) > 0.01:
+                    lines.append(f"{indent}self.wait({anim.duration:.1f})")
+                else:
+                    lines.append(f"{indent}self.wait()")
+                continue
+
+            anim_type = anim.anim_type
+            if anim_map:
+                anim_type = anim_map.get(anim_type, anim_type)
+            anim_call = f"{anim_type}({anim.target_name})"
             params: list[str] = []
             if abs(anim.duration - 1.0) > 0.01:
                 params.append(f"run_time={anim.duration:.1f}")
@@ -71,12 +99,13 @@ def generate_manimgl_code(
     scene_name: str = "ComposedScene",
     interactive: bool = False,
     replay_file: str = "",
+    include_import: bool = True,
 ) -> str:
     """Generate a complete ManimGL script from the current scene state."""
-    lines: list[str] = [
-        "from manimlib import *",
-        "",
-        "",
+    lines: list[str] = []
+    if include_import:
+        lines += ["from manimlib import *", "", ""]
+    lines += [
         f"class {scene_name}(Scene):",
         "    def construct(self):",
     ]
@@ -114,6 +143,29 @@ def generate_manimgl_code(
         lines.append("            except FileNotFoundError:")
         lines.append("                pass")
         lines.append("            _time.sleep(0.02)")
+
+    return "\n".join(lines) + "\n"
+
+
+def generate_manimce_code(
+    scene_state: SceneState,
+    scene_name: str = "ComposedScene",
+    include_import: bool = True,
+) -> str:
+    """Generate a complete Manim Community Edition script from the current scene state."""
+    lines: list[str] = []
+    if include_import:
+        lines += ["from manim import *", "", ""]
+    lines += [
+        f"class {scene_name}(Scene):",
+        "    def construct(self):",
+    ]
+
+    body = _generate_body(scene_state, indent="        ", anim_map=_CE_ANIM_NAMES, ce=True)
+    if not body:
+        lines.append("        pass")
+    else:
+        lines.extend(body)
 
     return "\n".join(lines) + "\n"
 
