@@ -153,9 +153,11 @@ class TinyTeXInstallWorker(QThread):
 
         zip_path.unlink(missing_ok=True)
 
-        if not (_BIN_DIR / "latex.exe").is_file():
+        # TinyTeX-0 is minimal — latex.exe won't exist until tlmgr installs
+        # latex-bin in the next step.  Verify extraction by checking for tlmgr.
+        if not (_BIN_DIR / "tlmgr.bat").is_file():
             raise RuntimeError(
-                f"Extraction failed — latex.exe not found at {_BIN_DIR}"
+                f"Extraction failed — tlmgr.bat not found at {_BIN_DIR}"
             )
 
     def _install_packages(self):
