@@ -27,7 +27,8 @@ Working end-to-end flow:
 | Rendering       | ManimGL v1.7+ (3b1b/manim, OpenGL)              |
 | Math            | NumPy                                            |
 | Package Manager | uv (with hatchling build backend)               |
-| LaTeX           | MiKTeX or TeX Live (latex + dvipng for canvas, latex + dvisvgm for manimgl) |
+| LaTeX           | Bundled TinyTeX (auto-installed to `%LOCALAPPDATA%/ManimComposer/TinyTeX/`) |
+| SVG Conversion  | pymupdf (`latex → DVI → dvipdfmx → PDF → pymupdf → SVG`)                  |
 
 ## Running
 
@@ -65,7 +66,10 @@ ManimStudio/
     │   └── properties_controller.py        # Properties panel ↔ SceneState wiring
     │
     ├── codegen/
-    │   └── generator.py                    # SceneState → ManimGL Python code
+    │   ├── generator.py                    # SceneState → ManimGL Python code
+    │   └── parser.py                       # (future: code → SceneState parser)
+    │
+    ├── latex_manager.py                    # TinyTeX auto-install, detection, PATH mgmt
     │
     ├── preview/                            # (future: live IPC preview)
     └── resources/                          # (future: icons, stylesheets)
@@ -106,10 +110,17 @@ Preview (manimgl in GL window)
 - Position spinners with coordinate conversion (pixel/100, Y flipped)
 - `_updating` flag prevents signal feedback loops
 
-**`patches.py`** — ManimGL monkey-patches for MiKTeX.
+**`patches.py`** — ManimGL monkey-patches for MiKTeX compatibility.
 - MiKTeX's `latex` rejects `-no-pdf` (xelatex-only flag)
 - ManimGL passes `-no-pdf` unconditionally to all compilers
 - Patch: only pass `-no-pdf` when compiler is `xelatex`
+
+**`latex_manager.py`** — TinyTeX auto-installation and PATH management.
+- Downloads TinyTeX-0 (~45 MB) from yihui.org and extracts to `%LOCALAPPDATA%/ManimComposer/TinyTeX/`
+- Installs required TeX Live packages via `tlmgr` (latex-bin, dvipng, dvipdfmx, amsmath, amsfonts, etc.)
+- `detect()` checks TinyTeX first, then system LaTeX
+- `get_latex_env()` always returns env dict with TinyTeX on PATH
+- `offer_install()` / `run_install()` — Qt UI for one-click install with progress dialog
 
 **`main.py`** — Application entry point and main window.
 - Loads `.ui` file via `uic.loadUi()`
@@ -132,6 +143,39 @@ Conversion: `manim_x = pixel_x / 100`, `manim_y = -pixel_y / 100` (Y is flipped)
 - `audioop` removed from stdlib — requires `audioop-lts` package
 - `pkg_resources` removed from setuptools v82 — pin `setuptools<81`
 
+### dvisvgm Crash on Windows (CreateProcessW Incompatibility)
+
+**Problem**: `dvisvgm` crashes when called from Python's `subprocess.run()` on Windows.
+The crash happens during DVI processing (after "pre-processing DVI file"), not at startup.
+Manim CE uses dvisvgm for DVI→SVG conversion, so this breaks all LaTeX rendering.
+
+**Root cause**: Python's `subprocess.run()` uses `CreateProcessW` on Windows. TeX Live
+and standalone dvisvgm builds (MinGW/GCC) are incompatible with `CreateProcessW`'s DLL
+resolution. MiKTeX's MSVC-built dvisvgm partially works (with `shell=True` or `cwd` set
+to exe dir), but TeX Live builds crash with ALL invocation methods from Python.
+
+| Build      | subprocess.run | shell=True | cmd /c | cwd=exe_dir | os.system | bash |
+|------------|:-:|:-:|:-:|:-:|:-:|:-:|
+| MiKTeX     | crash | OK | OK | OK | OK | OK |
+| TinyTeX    | crash | crash | crash | crash | crash | OK* |
+| Standalone | crash | crash | crash | crash | crash | OK* |
+
+*Only works from Git Bash (MSYS2 layer), not from Python-spawned bash.
+
+**Exit codes**: TeX Live → -2 (0xFFFFFFFE), MiKTeX/Standalone → -4 (0xFFFFFFFC).
+
+**Solution**: Replaced dvisvgm entirely with a pymupdf-based pipeline:
+```
+latex → DVI → dvipdfmx → PDF → pymupdf.get_svg_image() → SVG
+```
+This is implemented as a monkey-patch (`_SVG_PATCH`) prepended to the render script.
+The pymupdf pipeline is ~0.5s per render, fully self-contained (no external binary for
+SVG conversion), and works on any Windows machine.
+
+**Caveat**: pymupdf SVG output lacks dvisvgm-specific `<g id='uniqueNNN'>` tags.
+Manim CE logs a warning ("Using fallback to root group") but renders correctly.
+Multi-part TeX expressions may not isolate individual parts for animation.
+
 ### MiKTeX on Windows
 - `latex` command rejects `-no-pdf` flag (only valid for xelatex)
 - ManimGL unconditionally passes `-no-pdf` → crashes on MiKTeX
@@ -143,17 +187,26 @@ Conversion: `manim_x = pixel_x / 100`, `manim_y = -pixel_y / 100` (Y is flipped)
 - Community: `MathTex` for math, `Text` for text, `from manim import *`
 - This project targets **ManimGL only**
 
+### TinyTeX Installation Notes
+- TinyTeX-0 is a minimal bundle — it does NOT include `latex.exe` out of the box
+- `latex-bin` must be explicitly installed via `tlmgr`
+- TeX Live has no `amssymb` package — use `amsfonts` (includes amssymb + CM fonts)
+- `babel-english` is needed for Manim CE's default tex template
+- GitHub CDN blocks `urlretrieve` without a `User-Agent` header (403) — use `Request` + `urlopen`
+
 ## Dependencies
 
 Defined in `pyproject.toml`:
 ```
 manimgl>=1.7.0
+manim>=0.18             # Manim Community Edition (for CE render mode)
+pymupdf>=1.25           # PDF→SVG conversion (replaces dvisvgm)
 numpy>=2.4.2
 pyqt6>=6.10.2
-audioop-lts          # Python 3.13 compat
-setuptools<81        # pkg_resources compat
+audioop-lts             # Python 3.13 compat
+setuptools<81           # pkg_resources compat
 ```
 
 Build system: hatchling (required for uv entry point installation).
 
-System: LaTeX distribution (MiKTeX or TeX Live) with `latex`, `dvipng`, and `dvisvgm`.
+System: No external dependencies required. TinyTeX is auto-installed on first launch.
