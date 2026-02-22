@@ -1,4 +1,10 @@
-"""LaTeX distribution detection and TinyTeX auto-installation."""
+"""LaTeX distribution detection and TinyTeX auto-installation.
+
+Manim Composer always uses its own bundled TinyTeX distribution so that
+rendering works identically on every machine (and avoids MiKTeX-specific
+bugs like the dvisvgm/CreateProcessW crash).  System LaTeX is only used
+as a last resort if the user declines the TinyTeX install.
+"""
 
 import os
 import shutil
@@ -6,7 +12,7 @@ import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
-from urllib.request import urlretrieve
+from urllib.request import Request, urlopen
 
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QMessageBox, QProgressDialog, QWidget
@@ -22,12 +28,15 @@ _BIN_DIR = _INSTALL_DIR / "bin" / "windows"
 _TINYTEX_URL = "https://yihui.org/tinytex/TinyTeX-0.zip"
 
 _REQUIRED_PACKAGES = [
-    "dvipng",       # DVI → PNG  (canvas rendering)
-    "dvisvgm",      # DVI → SVG  (ManimGL preview)
-    "standalone",   # \documentclass[standalone]
-    "preview",      # \usepackage{preview}
-    "amsmath",      # \usepackage{amsmath}
-    "amssymb",      # \usepackage{amssymb}
+    "latex-bin",        # latex.exe / pdflatex.exe
+    "dvipng",           # DVI → PNG  (canvas rendering)
+    "dvisvgm",          # DVI → SVG  (fallback)
+    "dvipdfmx",         # DVI → PDF  (for pymupdf pipeline)
+    "standalone",       # \documentclass[standalone]
+    "preview",          # \usepackage{preview}
+    "amsmath",          # \usepackage{amsmath}
+    "amsfonts",         # amssymb + CM fonts
+    "babel-english",    # babel english hyphenation
 ]
 
 _CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -42,20 +51,25 @@ NONE = "none"
 
 
 def detect() -> str:
-    """Return SYSTEM, TINYTEX, or NONE depending on LaTeX availability."""
-    if shutil.which("latex"):
-        return SYSTEM
+    """Return TINYTEX, SYSTEM, or NONE (TinyTeX is checked first)."""
     if (_BIN_DIR / "latex.exe").is_file():
         return TINYTEX
+    if shutil.which("latex"):
+        return SYSTEM
     return NONE
 
 
 def is_complete() -> bool:
     """Check whether the local TinyTeX has all required executables."""
-    for name in ("latex.exe", "dvipng.exe", "dvisvgm.exe"):
+    for name in ("latex.exe", "dvipng.exe", "dvipdfmx.exe"):
         if not (_BIN_DIR / name).is_file():
             return False
     return True
+
+
+def tinytex_ready() -> bool:
+    """Return True if TinyTeX is installed and has the required binaries."""
+    return (_BIN_DIR / "latex.exe").is_file() and is_complete()
 
 
 # ---------------------------------------------------------------------------
@@ -63,28 +77,28 @@ def is_complete() -> bool:
 # ---------------------------------------------------------------------------
 
 def ensure_path() -> None:
-    """Prepend TinyTeX bin dir to os.environ['PATH'] if TinyTeX is active.
+    """Prepend TinyTeX bin dir to PATH so it shadows any system LaTeX.
 
     Call once at startup so every subprocess.run() inherits the correct PATH.
     """
-    if detect() == TINYTEX:
+    if (_BIN_DIR / "latex.exe").is_file():
         bin_dir = str(_BIN_DIR)
         if bin_dir not in os.environ.get("PATH", ""):
             os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
 
 
-def get_latex_env() -> dict | None:
-    """Return env dict with TinyTeX on PATH, or None if system LaTeX is used."""
-    status = detect()
-    if status == SYSTEM:
-        return None
-    if status == TINYTEX:
-        env = os.environ.copy()
+def get_latex_env() -> dict:
+    """Return env dict with TinyTeX at the front of PATH.
+
+    Always returns an env dict (never None) so that subprocesses use
+    TinyTeX even when a system LaTeX is present.
+    """
+    env = os.environ.copy()
+    if (_BIN_DIR / "latex.exe").is_file():
         bin_dir = str(_BIN_DIR)
         if bin_dir not in env.get("PATH", ""):
             env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
-        return env
-    return None
+    return env
 
 
 # ---------------------------------------------------------------------------
@@ -113,10 +127,20 @@ class TinyTeXInstallWorker(QThread):
         self.phase_changed.emit("Downloading TinyTeX…")
         zip_path = Path(tempfile.gettempdir()) / "TinyTeX-0.zip"
 
-        def _reporthook(block_num, block_size, total_size):
-            self.progress.emit(block_num * block_size, max(total_size, 1))
-
-        urlretrieve(_TINYTEX_URL, str(zip_path), reporthook=_reporthook)
+        # GitHub CDN blocks requests without a User-Agent header (403).
+        req = Request(_TINYTEX_URL, headers={"User-Agent": "ManimComposer"})
+        resp = urlopen(req)
+        total = int(resp.headers.get("Content-Length", 0))
+        received = 0
+        block_size = 64 * 1024
+        with open(zip_path, "wb") as fp:
+            while True:
+                chunk = resp.read(block_size)
+                if not chunk:
+                    break
+                fp.write(chunk)
+                received += len(chunk)
+                self.progress.emit(received, max(total, 1))
 
         self.phase_changed.emit("Extracting…")
         _INSTALL_BASE.mkdir(parents=True, exist_ok=True)
@@ -142,11 +166,14 @@ class TinyTeXInstallWorker(QThread):
             capture_output=True, text=True, timeout=300,
             creationflags=_CREATE_NO_WINDOW,
         )
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"tlmgr install failed (exit {result.returncode}):\n"
-                f"{result.stderr or result.stdout}"
-            )
+        # tlmgr may warn about already-present packages; only fail on real errors.
+        # Check that the critical binaries appeared.
+        for name in ("latex.exe", "dvipng.exe", "dvipdfmx.exe"):
+            if not (_BIN_DIR / name).is_file():
+                raise RuntimeError(
+                    f"tlmgr install succeeded but {name} is missing.\n"
+                    f"{result.stderr or result.stdout}"
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -157,11 +184,10 @@ def offer_install(parent: QWidget) -> bool:
     """Ask the user whether to install TinyTeX. Returns True if accepted."""
     answer = QMessageBox.question(
         parent,
-        "LaTeX Not Found",
-        "LaTeX is not installed on this system.\n\n"
-        "Manim Composer can automatically install TinyTeX,\n"
-        "a lightweight LaTeX distribution (~45 MB download).\n\n"
-        "Install now?",
+        "Install TinyTeX",
+        "Manim Composer uses TinyTeX, a lightweight LaTeX\n"
+        "distribution (~45 MB download), for rendering.\n\n"
+        "Install now? (required for LaTeX rendering)",
         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         QMessageBox.StandardButton.Yes,
     )

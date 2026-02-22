@@ -16,6 +16,7 @@ from manim_composer.views.canvas_items.mathtex_item import MathTexItem
 from manim_composer.models.scene_state import SceneState, TrackedObject, AnimationEntry
 from manim_composer.controllers.properties_controller import PropertiesController
 from manim_composer.codegen.generator import generate_manimce_code, generate_manimgl_code, generate_replay_code
+from manim_composer.codegen.parser import parse_code
 from manim_composer import latex_manager
 from manim_composer.syntax_highlighter import PythonHighlighter
 
@@ -74,6 +75,14 @@ from manimlib.__main__ import main
 main()
 '''
 
+# Quality presets for Manim CE rendering: label → (width, height, fps)
+_QUALITY_PRESETS = {
+    "480p 15fps": (854, 480, 15),
+    "720p 30fps": (1280, 720, 30),
+    "1080p 60fps": (1920, 1080, 60),
+    "4K 60fps": (3840, 2160, 60),
+}
+
 
 class ManimComposerWindow(QMainWindow):
     """Main application window, loaded from the .ui file."""
@@ -121,9 +130,9 @@ class ManimComposerWindow(QMainWindow):
     def _current_scene_name(self) -> str:
         return self._scenes[self._current_scene_idx]["name"]
 
-    def _add_scene_entry(self, name: str) -> None:
+    def _add_scene_entry(self, name: str, bg_color: str = "#000000") -> None:
         """Create a new scene and add it to the scenes list."""
-        self._scenes.append({"name": name, "state": SceneState()})
+        self._scenes.append({"name": name, "state": SceneState(), "bg_color": bg_color})
         self._updating_scenes = True
         from PyQt6.QtWidgets import QListWidgetItem
         item = QListWidgetItem(name)
@@ -136,8 +145,16 @@ class ManimComposerWindow(QMainWindow):
         self.btnAddScene.clicked.connect(self._on_add_scene)
         self.btnDeleteScene.clicked.connect(self._on_delete_scene)
         self.scenesList.currentRowChanged.connect(self._on_scene_selected)
+        self.scenesList.itemClicked.connect(self._on_scene_clicked)
         self.scenesList.itemChanged.connect(self._on_scene_renamed)
         self.scenesList.model().rowsMoved.connect(self._on_scene_rows_moved)
+        # Scene properties
+        self.editSceneName.editingFinished.connect(self._on_scene_name_edited)
+        self.btnSceneBgColor.clicked.connect(self._on_scene_bg_color_clicked)
+        # Render settings
+        self.comboRenderQuality.setCurrentIndex(2)  # Default 1080p 60fps
+        self.comboRenderQuality.currentTextChanged.connect(self._on_quality_changed)
+        self.btnBrowseOutput.clicked.connect(self._on_browse_output)
         # Select the first scene by default
         self.scenesList.setCurrentRow(0)
 
@@ -148,9 +165,10 @@ class ManimComposerWindow(QMainWindow):
 
         self._scene_counter += 1
         name = f"Scene{self._scene_counter}"
+        old_bg = self._scenes[self._current_scene_idx].get("bg_color", "#000000")
         # Hide current scene items
         self._hide_scene_items(self._current_scene_idx)
-        self._add_scene_entry(name)
+        self._add_scene_entry(name, bg_color=old_bg)
         new_idx = len(self._scenes) - 1
         new_state = self._scenes[new_idx]["state"]
 
@@ -214,8 +232,18 @@ class ManimComposerWindow(QMainWindow):
         self._show_scene_items(row)
         self._refresh_animations_list()
         self._refresh_code_editors()
-        # Clear properties panel selection
+        # Apply this scene's background color
+        bg = self._scenes[row].get("bg_color", "#000000")
+        self.canvas_scene.setBackgroundBrush(QBrush(QColor(bg)))
+        # Show scene properties
+        self._show_scene_properties(row)
         self.canvas_scene.clearSelection()
+
+    def _on_scene_clicked(self, item):
+        """Show scene properties when clicking an already-selected scene."""
+        row = self.scenesList.row(item)
+        if row >= 0:
+            self._show_scene_properties(row)
 
     def _hide_scene_items(self, idx: int):
         """Hide all canvas items for the given scene index."""
@@ -259,6 +287,63 @@ class ManimComposerWindow(QMainWindow):
             self._current_scene_idx += 1
         self._refresh_code_editors()
 
+    # --- Scene properties ---
+
+    def _show_scene_properties(self, row: int):
+        """Show the scene properties page for the given scene index."""
+        if row < 0 or row >= len(self._scenes):
+            return
+        scene = self._scenes[row]
+        self._updating_scenes = True
+        self.propertiesStack.setCurrentIndex(4)  # propsScenePage
+        self.editSceneName.setText(scene["name"])
+        bg = scene.get("bg_color", "#000000")
+        self.btnSceneBgColor.setText(bg)
+        self.btnSceneBgColor.setStyleSheet(f"background-color: {bg};")
+        self._updating_scenes = False
+
+    def _on_scene_name_edited(self):
+        """Update scene name from the properties panel."""
+        if self._updating_scenes:
+            return
+        idx = self._current_scene_idx
+        new_name = self.editSceneName.text().strip()
+        if not new_name or new_name == self._scenes[idx]["name"]:
+            return
+        self._scenes[idx]["name"] = new_name
+        self._updating_scenes = True
+        self.scenesList.item(idx).setText(new_name)
+        self._updating_scenes = False
+        self._refresh_code_editors()
+
+    def _on_scene_bg_color_clicked(self):
+        """Pick a background color for the current scene."""
+        from PyQt6.QtWidgets import QColorDialog
+        idx = self._current_scene_idx
+        current = self._scenes[idx].get("bg_color", "#000000")
+        color = QColorDialog.getColor(QColor(current), self, "Scene Background Color")
+        if color.isValid():
+            hex_color = color.name()
+            self._scenes[idx]["bg_color"] = hex_color
+            self.btnSceneBgColor.setText(hex_color)
+            self.btnSceneBgColor.setStyleSheet(f"background-color: {hex_color};")
+            self.canvas_scene.setBackgroundBrush(QBrush(QColor(hex_color)))
+
+    # --- Render settings ---
+
+    def _on_quality_changed(self, text: str):
+        """Sync FPS spinbox when quality preset changes."""
+        preset = _QUALITY_PRESETS.get(text)
+        if preset:
+            self.spinRenderFps.setValue(preset[2])
+
+    def _on_browse_output(self):
+        """Browse for a custom output directory."""
+        from PyQt6.QtWidgets import QFileDialog
+        path = QFileDialog.getExistingDirectory(self, "Select Output Directory")
+        if path:
+            self.editOutputDir.setText(path)
+
     def _fix_widget_enums(self):
         """Set widget properties that use scoped enums (avoids uic XML warnings)."""
         self.canvasView.setRenderHints(
@@ -274,13 +359,13 @@ class ManimComposerWindow(QMainWindow):
         self.toolbarSelector.addTab("Design")
         self.toolbarSelector.addTab("Animation")
         self.toolbarSelector.currentChanged.connect(self.toolbarStack.setCurrentIndex)
+        self.toolbarSelector.setCurrentIndex(1)  # Animation tab by default
 
     def _setup_center_tabs(self):
         """Wire the center tab bar to switch between Canvas, Code, and Output views."""
         self.centerTabBar.addTab("Canvas")
         self.centerTabBar.addTab("Code GL")
         self.centerTabBar.addTab("Code CE")
-        self.centerTabBar.addTab("Output")
         self.centerTabBar.addTab("Console")
         self.centerTabBar.currentChanged.connect(self.centerStack.setCurrentIndex)
 
@@ -351,8 +436,10 @@ class ManimComposerWindow(QMainWindow):
         return default_item
 
     def closeEvent(self, event):
-        """Kill the preview subprocess when the main window closes."""
+        """Kill subprocesses when the main window closes."""
         self._kill_preview()
+        if self._render_proc and self._render_proc.state() != QProcess.ProcessState.NotRunning:
+            self._render_proc.kill()
         super().closeEvent(event)
 
     def showEvent(self, event):
@@ -420,6 +507,7 @@ class ManimComposerWindow(QMainWindow):
         self.btnMoveAnimUp.clicked.connect(lambda: self._move_animation(-1))
         self.btnMoveAnimDown.clicked.connect(lambda: self._move_animation(1))
         self.btnAddAnimation.clicked.connect(self._add_animation)
+        self.animationsList.itemClicked.connect(self._on_animation_clicked)
         # Sync drag-drop reorder back to SceneState
         self.animationsList.model().rowsMoved.connect(self._on_anim_rows_moved)
 
@@ -441,6 +529,14 @@ class ManimComposerWindow(QMainWindow):
         self.scene_state.add_animation(entry)
         self._refresh_animations_list()
         self._refresh_code_editors()
+
+    def _on_animation_clicked(self, item):
+        """Show animation properties when clicking an already-selected animation."""
+        row = self.animationsList.row(item)
+        if row >= 0:
+            self.props_controller._current_anim_index = row
+            self.props_controller._current_name = None
+            self.props_controller._show_anim_properties(row)
 
     def _delete_animation(self):
         row = self.animationsList.currentRow()
@@ -493,7 +589,25 @@ class ManimComposerWindow(QMainWindow):
 
     def _setup_code_generation(self):
         """Regenerate code when switching to a Code tab."""
+        self._code_gl_manual = False
+        self._code_ce_manual = False
+        self._updating_code = False
+        self._code_sync_timer = QTimer(self)
+        self._code_sync_timer.setSingleShot(True)
+        self._code_sync_timer.timeout.connect(self._apply_code_to_canvas)
+        self.codeEditor.textChanged.connect(self._on_code_gl_edited)
+        self.codeEditorCE.textChanged.connect(self._on_code_ce_edited)
         self.centerTabBar.currentChanged.connect(self._on_center_tab_changed)
+
+    def _on_code_gl_edited(self):
+        if not self._updating_code:
+            self._code_gl_manual = True
+            self._code_sync_timer.start(800)
+
+    def _on_code_ce_edited(self):
+        if not self._updating_code:
+            self._code_ce_manual = True
+            self._code_sync_timer.start(800)
 
     def _setup_delete_action(self):
         """Wire the Delete action (Del key) to remove selected items."""
@@ -505,6 +619,10 @@ class ManimComposerWindow(QMainWindow):
         self.actionSelectAll.triggered.connect(self._select_all)
 
     def _copy_selected(self):
+        focused = QApplication.focusWidget()
+        if isinstance(focused, QPlainTextEdit):
+            focused.copy()
+            return
         selected = self.canvas_scene.selectedItems()
         if len(selected) != 1:
             return
@@ -525,6 +643,10 @@ class ManimComposerWindow(QMainWindow):
         self.statusBar.showMessage("Copied", 2000)
 
     def _paste_clipboard(self):
+        focused = QApplication.focusWidget()
+        if isinstance(focused, QPlainTextEdit):
+            focused.paste()
+            return
         if not self._clipboard:
             return
         cb = self._clipboard
@@ -567,7 +689,11 @@ class ManimComposerWindow(QMainWindow):
         self._refresh_animations_list()
 
     def _select_all(self):
-        """Select all canvas objects in the current scene."""
+        """Select all canvas objects in the current scene, or all text in a focused editor."""
+        focused = QApplication.focusWidget()
+        if isinstance(focused, QPlainTextEdit):
+            focused.selectAll()
+            return
         self.canvas_scene.clearSelection()
         for name, _ in self.scene_state.all_objects():
             item = self.scene_state.get_item(name)
@@ -575,9 +701,12 @@ class ManimComposerWindow(QMainWindow):
                 item.setSelected(True)
 
     def _setup_preview(self):
-        """Wire Preview button, Dock toggle, and Export to .py."""
+        """Wire Preview button, Render buttons, Dock toggle, and Export to .py."""
         self._dock_hwnd = None
+        self._render_proc = None
         self.btnPreviewScene.clicked.connect(self._preview_scene)
+        self.btnRenderScene.clicked.connect(self._render_current_scene)
+        self.btnRenderAll.clicked.connect(self._render_all_scenes)
         self.btnDockPreview.toggled.connect(self._on_dock_toggled)
         self.actionExportPy.triggered.connect(self._export_py)
 
@@ -667,11 +796,17 @@ class ManimComposerWindow(QMainWindow):
             pass
 
         scene_name = self._current_scene_name()
-        code = generate_manimgl_code(
-            self.scene_state, scene_name=scene_name,
-            interactive=True,
-            replay_file=replay_file.replace("\\", "/"),
-        )
+        if self._code_gl_manual:
+            # User has manually edited GL code — use it as-is
+            code = self.codeEditor.toPlainText()
+        else:
+            bg_color = self._scenes[self._current_scene_idx].get("bg_color", "#000000")
+            code = generate_manimgl_code(
+                self.scene_state, scene_name=scene_name,
+                interactive=True,
+                replay_file=replay_file.replace("\\", "/"),
+                bg_color=bg_color,
+            )
 
         with open(tmp, "w", encoding="utf-8") as f:
             f.write(code)
@@ -691,13 +826,11 @@ class ManimComposerWindow(QMainWindow):
 
         proc = QProcess(self)
         proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        # Ensure TinyTeX binaries are on PATH for the preview subprocess
-        latex_env = latex_manager.get_latex_env()
-        if latex_env:
-            qenv = QProcessEnvironment()
-            for k, v in latex_env.items():
-                qenv.insert(k, v)
-            proc.setProcessEnvironment(qenv)
+        # Always use TinyTeX env so it shadows system LaTeX
+        qenv = QProcessEnvironment()
+        for k, v in latex_manager.get_latex_env().items():
+            qenv.insert(k, v)
+        proc.setProcessEnvironment(qenv)
         proc.readyReadStandardOutput.connect(self._read_preview_output)
         proc.finished.connect(self._on_preview_finished)
         proc.errorOccurred.connect(self._on_preview_error)
@@ -733,6 +866,183 @@ class ManimComposerWindow(QMainWindow):
 
         self.statusBar.showMessage("Preview updated", 3000)
 
+    # --- Rendering (Manim CE) ---
+
+    def _get_ce_code_and_names(self, all_scenes: bool = False) -> tuple[str, list[str]]:
+        """Get CE code and scene names, using manual edits if present."""
+        if self._code_ce_manual:
+            # User has manually edited CE code — use it as-is
+            code = self.codeEditorCE.toPlainText()
+            if all_scenes:
+                names = [s["name"] for s in self._scenes]
+            else:
+                names = [self._current_scene_name()]
+            return code, names
+        # Auto-generate fresh
+        if all_scenes:
+            code = self._generate_all_ce_code()
+            names = [s["name"] for s in self._scenes]
+        else:
+            scene_name = self._current_scene_name()
+            bg_color = self._scenes[self._current_scene_idx].get("bg_color", "#000000")
+            code = generate_manimce_code(
+                self.scene_state, scene_name=scene_name, include_import=True,
+                bg_color=bg_color,
+            )
+            names = [scene_name]
+        return code, names
+
+    def _render_current_scene(self):
+        """Render the current scene to video using Manim CE."""
+        if self._render_proc is not None and self._render_proc.state() != QProcess.ProcessState.NotRunning:
+            self.statusBar.showMessage("A render is already in progress", 3000)
+            return
+        code, names = self._get_ce_code_and_names(all_scenes=False)
+        self._start_render(code, names)
+
+    def _render_all_scenes(self):
+        """Render all scenes to video using Manim CE."""
+        if self._render_proc is not None and self._render_proc.state() != QProcess.ProcessState.NotRunning:
+            self.statusBar.showMessage("A render is already in progress", 3000)
+            return
+        code, names = self._get_ce_code_and_names(all_scenes=True)
+        self._start_render(code, names)
+
+    # On Windows, dvisvgm (TeX Live build) crashes when called via
+    # Python's subprocess (CreateProcessW).  Replace Manim CE's
+    # convert_to_svg with pymupdf so no dvisvgm binary is needed.
+    _SVG_PATCH = (
+        "import sys as _sys\n"
+        "if _sys.platform == 'win32':\n"
+        "    import subprocess as _sp, pymupdf as _mu\n"
+        "    import manim.utils.tex_file_writing as _tfw\n"
+        "    def _convert_to_svg(dvi_file, extension, page=1):\n"
+        "        result = dvi_file.with_suffix('.svg')\n"
+        "        if result.exists():\n"
+        "            return result\n"
+        "        src = dvi_file\n"
+        "        if extension == '.dvi':\n"
+        "            pdf = dvi_file.with_suffix('.pdf')\n"
+        "            _sp.run(['dvipdfmx', '-o', str(pdf), str(dvi_file)],\n"
+        "                    capture_output=True)\n"
+        "            src = pdf\n"
+        "        doc = _mu.open(str(src))\n"
+        "        result.write_text(doc[page - 1].get_svg_image())\n"
+        "        doc.close()\n"
+        "        if not result.exists():\n"
+        "            raise ValueError(f'SVG conversion failed for {dvi_file}')\n"
+        "        return result\n"
+        "    _tfw.convert_to_svg = _convert_to_svg\n"
+    )
+
+    def _start_render(self, code: str, scene_names: list[str]):
+        """Write CE code to temp file and launch manim render."""
+        tmp_dir = tempfile.gettempdir()
+        render_file = os.path.join(tmp_dir, "manim_composer_render.py")
+        with open(render_file, "w", encoding="utf-8") as f:
+            f.write(self._SVG_PATCH)
+            f.write(code)
+
+        # Read render settings from UI widgets
+        quality = self.comboRenderQuality.currentText()
+        w, h, _preset_fps = _QUALITY_PRESETS.get(quality, (1920, 1080, 60))
+        fps = self.spinRenderFps.value()
+        fmt = self.comboRenderFormat.currentText()
+        output_dir = self.editOutputDir.text().strip()
+
+        # Always use a known media_dir so we can find the output
+        media_dir = output_dir or os.path.join(tmp_dir, "manim_composer_media")
+        args = [
+            "render",
+            "--renderer", "cairo",
+            "--resolution", f"{w},{h}",
+            "--frame_rate", str(fps),
+            "--format", fmt,
+            "--media_dir", media_dir,
+        ]
+        args.append(render_file)
+        args.extend(scene_names)
+
+        # Store render info for open-on-completion
+        self._render_scene_names = scene_names
+        self._render_media_dir = media_dir
+        self._render_format = fmt
+
+        label = ", ".join(scene_names)
+        self.statusBar.showMessage(f"Rendering {label}...")
+        self.consolePane.clear()
+        self.centerTabBar.setCurrentIndex(3)  # Switch to Console tab
+
+        proc = QProcess(self)
+        proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        # Always use TinyTeX env so it shadows system LaTeX
+        qenv = QProcessEnvironment()
+        for k, v in latex_manager.get_latex_env().items():
+            qenv.insert(k, v)
+        proc.setProcessEnvironment(qenv)
+        proc.readyReadStandardOutput.connect(self._read_render_output)
+        proc.finished.connect(self._on_render_finished)
+        proc.errorOccurred.connect(self._on_render_error)
+        proc.start(sys.executable, ["-m", "manim"] + args)
+        self._render_proc = proc
+
+    def _read_render_output(self):
+        """Append render output to the Console pane."""
+        data = self._render_proc.readAllStandardOutput()
+        text = bytes(data).decode("utf-8", errors="replace")
+        cursor = self.consolePane.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.insertText(text)
+        self.consolePane.setTextCursor(cursor)
+        self.consolePane.ensureCursorVisible()
+
+    def _on_render_finished(self, exit_code, _exit_status):
+        """Handle render process completion."""
+        cursor = self.consolePane.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        if exit_code != 0:
+            self.statusBar.showMessage(f"Render failed (exit {exit_code})", 5000)
+            cursor.insertText(f"\n--- Render FAILED (exit code {exit_code}) ---\n")
+        else:
+            self.statusBar.showMessage("Render complete!", 5000)
+            cursor.insertText("\n--- Render complete! ---\n")
+            # Try to open the rendered file(s) if checkbox is checked
+            if self.checkOpenOnComplete.isChecked():
+                self._open_rendered_files()
+        self.consolePane.setTextCursor(cursor)
+        self.consolePane.ensureCursorVisible()
+
+    def _open_rendered_files(self):
+        """Open rendered video files in the default OS application."""
+        media_dir = getattr(self, "_render_media_dir", "")
+        fmt = getattr(self, "_render_format", "mp4")
+        scene_names = getattr(self, "_render_scene_names", [])
+        if not media_dir or not scene_names:
+            return
+        # Manim CE puts videos in media/videos/<filename>/<quality>/SceneName.ext
+        # Find the newest matching file for the last rendered scene
+        target_name = scene_names[-1]
+        ext = fmt if fmt != "png" else "png"
+        best_path = None
+        best_mtime = 0
+        for root, _dirs, files in os.walk(media_dir):
+            for f in files:
+                if f == f"{target_name}.{ext}":
+                    path = os.path.join(root, f)
+                    mtime = os.path.getmtime(path)
+                    if mtime > best_mtime:
+                        best_mtime = mtime
+                        best_path = path
+        if best_path:
+            os.startfile(best_path)
+
+    def _on_render_error(self, error):
+        """Handle render process startup errors."""
+        if error == QProcess.ProcessError.FailedToStart:
+            self.statusBar.showMessage(
+                "Failed to start render — check Manim CE installation (pip install manim)", 5000
+            )
+
     def _read_preview_output(self):
         """Append new output from the preview process to the Console pane."""
         data = self._preview_proc.readAllStandardOutput()
@@ -749,7 +1059,7 @@ class ManimComposerWindow(QMainWindow):
         self.btnDockPreview.setChecked(False)
         if exit_code != 0:
             self.statusBar.showMessage(f"Preview failed (exit {exit_code})", 5000)
-            self.centerTabBar.setCurrentIndex(4)  # switch to Console tab
+            self.centerTabBar.setCurrentIndex(3)  # switch to Console tab
         else:
             self.statusBar.showMessage("Preview finished", 3000)
 
@@ -768,14 +1078,12 @@ class ManimComposerWindow(QMainWindow):
             "Python Files (*.py);;All Files (*)",
         )
         if path:
-            parts = []
-            for i, scene in enumerate(self._scenes):
-                parts.append(generate_manimgl_code(
-                    scene["state"], scene_name=scene["name"],
-                    include_import=(i == 0),
-                ))
+            if self._code_gl_manual:
+                code = self.codeEditor.toPlainText()
+            else:
+                code = self._generate_all_gl_code()
             with open(path, "w", encoding="utf-8") as f:
-                f.write("\n".join(parts))
+                f.write(code)
             self.statusBar.showMessage(f"Exported to {path}", 5000)
 
     def _setup_syntax_highlighting(self):
@@ -788,27 +1096,152 @@ class ManimComposerWindow(QMainWindow):
         if index in (1, 2):
             self._refresh_code_editors()
 
+    def _generate_all_gl_code(self) -> str:
+        """Generate ManimGL code for all scenes."""
+        parts = []
+        for i, scene in enumerate(self._scenes):
+            code = generate_manimgl_code(
+                scene["state"], scene_name=scene["name"],
+                include_import=(i == 0),
+                bg_color=scene.get("bg_color", "#000000"),
+            )
+            parts.append(code)
+        return "\n".join(parts)
+
+    def _generate_all_ce_code(self) -> str:
+        """Generate Manim CE code for all scenes."""
+        parts = []
+        for i, scene in enumerate(self._scenes):
+            code = generate_manimce_code(
+                scene["state"], scene_name=scene["name"],
+                include_import=(i == 0),
+                bg_color=scene.get("bg_color", "#000000"),
+            )
+            parts.append(code)
+        return "\n".join(parts)
+
     def _refresh_code_editors(self):
-        """Update the visible code editor with all scenes."""
+        """Update the visible code editor with all scenes (unless manually edited)."""
+        self._updating_code = True
         index = self.centerTabBar.currentIndex()
-        if index == 1:  # Code GL tab
-            parts = []
-            for i, scene in enumerate(self._scenes):
-                code = generate_manimgl_code(
-                    scene["state"], scene_name=scene["name"],
-                    include_import=(i == 0),
+        if index == 1 and not self._code_gl_manual:  # Code GL tab
+            self.codeEditor.setPlainText(self._generate_all_gl_code())
+        elif index == 2 and not self._code_ce_manual:  # Code CE tab
+            self.codeEditorCE.setPlainText(self._generate_all_ce_code())
+        self._updating_code = False
+
+    # --- Code → Canvas sync ---
+
+    def _apply_code_to_canvas(self):
+        """Parse the active code editor and sync changes back to the canvas."""
+        index = self.centerTabBar.currentIndex()
+        if index == 1:
+            code = self.codeEditor.toPlainText()
+        elif index == 2:
+            code = self.codeEditorCE.toPlainText()
+        else:
+            return
+
+        scenes = parse_code(code)
+        if not scenes:
+            return  # Syntax errors or empty — do nothing
+
+        # Find the parsed scene matching the current scene
+        current_name = self._current_scene_name()
+        parsed = None
+        for i, s in enumerate(scenes):
+            if s.name == current_name:
+                parsed = s
+                break
+        # Fallback: use scene at the same index
+        if parsed is None and self._current_scene_idx < len(scenes):
+            parsed = scenes[self._current_scene_idx]
+        if parsed is None:
+            return
+
+        self._updating_code = True
+        state = self.scene_state
+        parsed_names = {obj.name for obj in parsed.objects}
+        current_names = set(state.object_names())
+
+        # --- Update / add objects ---
+        for pobj in parsed.objects:
+            tracked = state.get_tracked(pobj.name)
+            item = state.get_item(pobj.name)
+
+            if tracked and item:
+                # Update existing object
+                if tracked.latex != pobj.latex:
+                    tracked.latex = pobj.latex
+                    item.set_latex(pobj.latex)
+                if tracked.color.upper() != pobj.color.upper():
+                    tracked.color = pobj.color
+                    item.set_color(pobj.color)
+                if tracked.font_size != pobj.font_size:
+                    tracked.font_size = pobj.font_size
+                    item.set_font_size(pobj.font_size)
+                # Position (manim → scene coords)
+                new_sx = pobj.pos_x * 100.0
+                new_sy = -pobj.pos_y * 100.0
+                pos = item.pos()
+                if abs(pos.x() - new_sx) > 0.5 or abs(pos.y() - new_sy) > 0.5:
+                    item.setPos(new_sx, new_sy)
+            else:
+                # New object from code
+                new_item = MathTexItem(
+                    latex=pobj.latex, color=pobj.color,
+                    font_size=pobj.font_size,
                 )
-                parts.append(code)
-            self.codeEditor.setPlainText("\n".join(parts))
-        elif index == 2:  # Code CE tab
-            parts = []
-            for i, scene in enumerate(self._scenes):
-                code = generate_manimce_code(
-                    scene["state"], scene_name=scene["name"],
-                    include_import=(i == 0),
+                self.canvas_scene.addItem(new_item)
+                new_item.setPos(pobj.pos_x * 100.0, -pobj.pos_y * 100.0)
+                new_tracked = TrackedObject(
+                    name=pobj.name, obj_type="mathtex",
+                    latex=pobj.latex, color=pobj.color,
+                    font_size=pobj.font_size,
                 )
-                parts.append(code)
-            self.codeEditorCE.setPlainText("\n".join(parts))
+                state.register(pobj.name, new_tracked, new_item)
+
+        # --- Remove deleted objects ---
+        for name in current_names - parsed_names:
+            item = state.get_item(name)
+            state.unregister(name)
+            if item:
+                self.canvas_scene.removeItem(item)
+
+        # --- Sync animations ---
+        state._animations.clear()
+        for panim in parsed.animations:
+            state.add_animation(AnimationEntry(
+                target_name=panim.target_name,
+                anim_type=panim.anim_type,
+                duration=panim.duration,
+                easing=panim.easing,
+            ))
+
+        # --- Sync scene metadata ---
+        scene_data = self._scenes[self._current_scene_idx]
+        if parsed.bg_color.upper() != scene_data.get("bg_color", "#000000").upper():
+            scene_data["bg_color"] = parsed.bg_color
+            self.canvas_scene.setBackgroundBrush(QBrush(QColor(parsed.bg_color)))
+        if parsed.name != scene_data["name"]:
+            scene_data["name"] = parsed.name
+            self._updating_scenes = True
+            self.scenesList.item(self._current_scene_idx).setText(parsed.name)
+            self._updating_scenes = False
+
+        # Refresh UI
+        self._refresh_animations_list()
+        # Update properties panel if an object is selected
+        ctrl = self.props_controller
+        if ctrl._current_name:
+            tracked = state.get_tracked(ctrl._current_name)
+            if tracked:
+                ctrl._show_properties(ctrl._current_name)
+            else:
+                ctrl._current_name = None
+                self.propertiesStack.setCurrentIndex(0)
+
+        self._updating_code = False
 
 
 def main():
@@ -819,18 +1252,17 @@ def main():
     # Let Ctrl+C close the app gracefully
     signal.signal(signal.SIGINT, lambda *_: app.quit())
 
-    # Configure PATH for a local TinyTeX install (fast, no-op if system LaTeX)
-    latex_manager.ensure_path()
-
     window = ManimComposerWindow()
     window.show()
 
-    # Offer to install TinyTeX if no LaTeX distribution is found
-    if latex_manager.detect() == latex_manager.NONE:
+    # Ensure TinyTeX is installed — it's the standard LaTeX for Manim Composer
+    if not latex_manager.tinytex_ready():
         if latex_manager.offer_install(window):
             if latex_manager.run_install(window):
-                # Reset render cache so the canvas retries LaTeX
                 MathTexItem._latex_available = None
+
+    # Put TinyTeX at the front of PATH (shadows system LaTeX)
+    latex_manager.ensure_path()
 
     sys.exit(app.exec())
 

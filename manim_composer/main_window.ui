@@ -417,6 +417,51 @@
          </widget>
         </item>
         <item>
+         <widget class="QToolButton" name="btnRenderScene">
+          <property name="minimumSize">
+           <size>
+            <width>90</width>
+            <height>36</height>
+           </size>
+          </property>
+          <property name="toolTip">
+           <string>Render current scene to video (Manim CE)</string>
+          </property>
+          <property name="text">
+           <string>Render Scene</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="btnRenderAll">
+          <property name="minimumSize">
+           <size>
+            <width>80</width>
+            <height>36</height>
+           </size>
+          </property>
+          <property name="toolTip">
+           <string>Render all scenes to video (Manim CE)</string>
+          </property>
+          <property name="text">
+           <string>Render All</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="animToolbarSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
          <widget class="QToolButton" name="btnDockPreview">
           <property name="minimumSize">
            <size>
@@ -434,19 +479,6 @@
            <string>Dock</string>
           </property>
          </widget>
-        </item>
-        <item>
-         <spacer name="animToolbarSpacer">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
         </item>
        </layout>
       </widget>
@@ -759,41 +791,6 @@
             </item>
            </layout>
           </widget>
-          <widget class="QWidget" name="outputPage">
-           <layout class="QVBoxLayout" name="outputPageLayout">
-            <property name="leftMargin">
-             <number>0</number>
-            </property>
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <item>
-             <widget class="QPlainTextEdit" name="outputLog">
-              <property name="font">
-               <font>
-                <family>Consolas</family>
-                <pointsize>10</pointsize>
-               </font>
-              </property>
-              <property name="styleSheet">
-               <string>QPlainTextEdit { background-color: #272822; color: #A6E22E; }</string>
-              </property>
-              <property name="readOnly">
-               <bool>true</bool>
-              </property>
-              <property name="placeholderText">
-               <string>Preview output will appear here...</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
           <widget class="QWidget" name="consolePage">
            <layout class="QVBoxLayout" name="consolePageLayout">
             <property name="leftMargin">
@@ -833,7 +830,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="QGroupBox" name="propertiesGroup">
+      <widget class="QWidget" name="rightPanel">
        <property name="minimumSize">
         <size>
          <width>220</width>
@@ -846,496 +843,707 @@
          <height>16777215</height>
         </size>
        </property>
-       <property name="title">
-        <string>Properties</string>
-       </property>
-       <layout class="QVBoxLayout" name="propertiesLayout">
+       <layout class="QVBoxLayout" name="rightPanelLayout">
         <property name="spacing">
          <number>4</number>
         </property>
         <property name="leftMargin">
-         <number>4</number>
+         <number>0</number>
         </property>
         <property name="topMargin">
-         <number>4</number>
+         <number>0</number>
         </property>
         <property name="rightMargin">
-         <number>4</number>
+         <number>0</number>
         </property>
         <property name="bottomMargin">
-         <number>4</number>
+         <number>0</number>
         </property>
         <item>
-         <widget class="QStackedWidget" name="propertiesStack">
-          <property name="currentIndex">
-           <number>3</number>
+         <widget class="QGroupBox" name="propertiesGroup">
+          <property name="title">
+           <string>Properties</string>
           </property>
-          <widget class="QWidget" name="propsEmptyPage">
-           <layout class="QVBoxLayout" name="propsEmptyLayout">
-            <item>
-             <widget class="QLabel" name="labelNoSelection">
-              <property name="text">
-               <string>No object selected.
+          <layout class="QVBoxLayout" name="propertiesLayout">
+           <property name="spacing">
+            <number>4</number>
+           </property>
+           <property name="leftMargin">
+            <number>4</number>
+           </property>
+           <property name="topMargin">
+            <number>4</number>
+           </property>
+           <property name="rightMargin">
+            <number>4</number>
+           </property>
+           <property name="bottomMargin">
+            <number>4</number>
+           </property>
+           <item>
+            <widget class="QStackedWidget" name="propertiesStack">
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <widget class="QWidget" name="propsEmptyPage">
+              <layout class="QVBoxLayout" name="propsEmptyLayout">
+               <item>
+                <widget class="QLabel" name="labelNoSelection">
+                 <property name="text">
+                  <string>No object selected.
 
 Click an object on the canvas or right-click to edit its properties.</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignCenter</set>
-              </property>
-              <property name="wordWrap">
-               <bool>true</bool>
-              </property>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </widget>
-            </item>
-           </layout>
-          </widget>
-          <widget class="QWidget" name="propsTextPage">
-           <layout class="QFormLayout" name="propsTextFormLayout">
-            <item row="0" column="0">
-             <widget class="QLabel" name="labelObjName">
+             <widget class="QWidget" name="propsTextPage">
+              <layout class="QFormLayout" name="propsTextFormLayout">
+               <item row="0" column="0">
+                <widget class="QLabel" name="labelObjName">
+                 <property name="text">
+                  <string>Name:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="editObjName">
+                 <property name="placeholderText">
+                  <string>eq_1</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="labelLatex">
+                 <property name="text">
+                  <string>LaTeX:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QPlainTextEdit" name="editLatexCode">
+                 <property name="maximumSize">
+                  <size>
+                   <width>16777215</width>
+                   <height>120</height>
+                  </size>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <family>Consolas</family>
+                   <pointsize>10</pointsize>
+                  </font>
+                 </property>
+                 <property name="placeholderText">
+                  <string>E = mc^2</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="labelTextColor">
+                 <property name="text">
+                  <string>Color:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QPushButton" name="btnTextColor">
+                 <property name="styleSheet">
+                  <string>background-color: #FFFFFF;</string>
+                 </property>
+                 <property name="text">
+                  <string>#FFFFFF</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="labelFontSize">
+                 <property name="text">
+                  <string>Font Size:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QSpinBox" name="spinFontSize">
+                 <property name="minimum">
+                  <number>8</number>
+                 </property>
+                 <property name="maximum">
+                  <number>200</number>
+                 </property>
+                 <property name="value">
+                  <number>48</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="0">
+                <widget class="QLabel" name="labelPosX">
+                 <property name="text">
+                  <string>X:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1">
+                <widget class="QDoubleSpinBox" name="spinPosX">
+                 <property name="decimals">
+                  <number>2</number>
+                 </property>
+                 <property name="minimum">
+                  <double>-8.000000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>8.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="0">
+                <widget class="QLabel" name="labelPosY">
+                 <property name="text">
+                  <string>Y:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="1">
+                <widget class="QDoubleSpinBox" name="spinPosY">
+                 <property name="decimals">
+                  <number>2</number>
+                 </property>
+                 <property name="minimum">
+                  <double>-5.000000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>5.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="0">
+                <spacer name="verticalSpacer_2">
+                 <property name="orientation">
+                  <enum>Qt::Vertical</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>40</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </widget>
+             <widget class="QWidget" name="propsShapePage">
+              <layout class="QFormLayout" name="propsShapeFormLayout">
+               <item row="0" column="0">
+                <widget class="QLabel" name="labelShapeName">
+                 <property name="text">
+                  <string>Name:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="editShapeName">
+                 <property name="placeholderText">
+                  <string>circle_1</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="labelShapeType">
+                 <property name="text">
+                  <string>Type:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLabel" name="labelShapeTypeValue">
+                 <property name="text">
+                  <string>Circle</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="labelStrokeColor">
+                 <property name="text">
+                  <string>Stroke:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QPushButton" name="btnStrokeColor">
+                 <property name="styleSheet">
+                  <string>background-color: #FFFFFF;</string>
+                 </property>
+                 <property name="text">
+                  <string>#FFFFFF</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="labelFillColor">
+                 <property name="text">
+                  <string>Fill:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QPushButton" name="btnFillColor">
+                 <property name="text">
+                  <string>None</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="0">
+                <widget class="QLabel" name="labelStrokeWidth">
+                 <property name="text">
+                  <string>Width:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1">
+                <widget class="QDoubleSpinBox" name="spinStrokeWidth">
+                 <property name="minimum">
+                  <double>0.500000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>20.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.500000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>2.000000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="0">
+                <widget class="QLabel" name="labelRadius">
+                 <property name="text">
+                  <string>Radius:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="1">
+                <widget class="QDoubleSpinBox" name="spinRadius">
+                 <property name="minimum">
+                  <double>0.100000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>10.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>1.000000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="0">
+                <widget class="QLabel" name="labelShapePosX">
+                 <property name="text">
+                  <string>X:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="1">
+                <widget class="QDoubleSpinBox" name="spinShapePosX">
+                 <property name="decimals">
+                  <number>2</number>
+                 </property>
+                 <property name="minimum">
+                  <double>-8.000000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>8.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item row="7" column="0">
+                <widget class="QLabel" name="labelShapePosY">
+                 <property name="text">
+                  <string>Y:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="7" column="1">
+                <widget class="QDoubleSpinBox" name="spinShapePosY">
+                 <property name="decimals">
+                  <number>2</number>
+                 </property>
+                 <property name="minimum">
+                  <double>-5.000000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>5.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item row="8" column="1">
+                <spacer name="verticalSpacer_3">
+                 <property name="orientation">
+                  <enum>Qt::Vertical</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>40</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </widget>
+             <widget class="QWidget" name="propsAnimPage">
+              <layout class="QFormLayout" name="propsAnimFormLayout">
+               <item row="0" column="0">
+                <widget class="QLabel" name="labelAnimTarget">
+                 <property name="text">
+                  <string>Target:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QComboBox" name="comboAnimTarget">
+                 <property name="placeholderText" stdset="0">
+                  <string>Select object...</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="labelPropAnimType">
+                 <property name="text">
+                  <string>Animation:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QComboBox" name="comboAnimTypeProps">
+                 <item>
+                  <property name="text">
+                   <string>Add</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>Wait</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>FadeIn</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>FadeOut</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>Write</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>ShowCreation</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>Transform</string>
+                  </property>
+                 </item>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="labelPropDuration">
+                 <property name="text">
+                  <string>Duration:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QDoubleSpinBox" name="spinAnimDuration">
+                 <property name="suffix">
+                  <string>s</string>
+                 </property>
+                 <property name="minimum">
+                  <double>0.100000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>30.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>1.000000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="labelEasing">
+                 <property name="text">
+                  <string>Easing:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QComboBox" name="comboEasing">
+                 <item>
+                  <property name="text">
+                   <string>smooth</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>linear</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>rush_into</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>rush_from</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>there_and_back</string>
+                  </property>
+                 </item>
+                </widget>
+               </item>
+               <item row="4" column="0">
+                <spacer name="verticalSpacer">
+                 <property name="orientation">
+                  <enum>Qt::Vertical</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>40</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </widget>
+             <widget class="QWidget" name="propsScenePage">
+              <layout class="QFormLayout" name="propsSceneFormLayout">
+               <item row="0" column="0">
+                <widget class="QLabel" name="labelSceneName">
+                 <property name="text">
+                  <string>Name:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="editSceneName">
+                 <property name="placeholderText">
+                  <string>Scene1</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="labelSceneBgColor">
+                 <property name="text">
+                  <string>Background:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QPushButton" name="btnSceneBgColor">
+                 <property name="styleSheet">
+                  <string>background-color: #000000;</string>
+                 </property>
+                 <property name="text">
+                  <string>#000000</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <spacer name="verticalSpacer_4">
+                 <property name="orientation">
+                  <enum>Qt::Vertical</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>40</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </widget>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="renderGroup">
+          <property name="title">
+           <string>Render Settings</string>
+          </property>
+          <layout class="QFormLayout" name="renderFormLayout">
+           <property name="leftMargin">
+            <number>4</number>
+           </property>
+           <property name="topMargin">
+            <number>4</number>
+           </property>
+           <property name="rightMargin">
+            <number>4</number>
+           </property>
+           <property name="bottomMargin">
+            <number>4</number>
+           </property>
+           <item row="0" column="0">
+            <widget class="QLabel" name="labelRenderQuality">
+             <property name="text">
+              <string>Quality:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QComboBox" name="comboRenderQuality">
+             <item>
               <property name="text">
-               <string>Name:</string>
+               <string>480p 15fps</string>
               </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QLineEdit" name="editObjName">
-              <property name="placeholderText">
-               <string>eq_1</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="labelLatex">
+             </item>
+             <item>
               <property name="text">
-               <string>LaTeX:</string>
+               <string>720p 30fps</string>
               </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QPlainTextEdit" name="editLatexCode">
-              <property name="maximumSize">
-               <size>
-                <width>16777215</width>
-                <height>120</height>
-               </size>
-              </property>
-              <property name="font">
-               <font>
-                <family>Consolas</family>
-                <pointsize>10</pointsize>
-               </font>
-              </property>
-              <property name="placeholderText">
-               <string>E = mc^2</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="labelTextColor">
+             </item>
+             <item>
               <property name="text">
-               <string>Color:</string>
+               <string>1080p 60fps</string>
               </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
-             <widget class="QPushButton" name="btnTextColor">
-              <property name="styleSheet">
-               <string>background-color: #FFFFFF;</string>
-              </property>
+             </item>
+             <item>
               <property name="text">
-               <string>#FFFFFF</string>
+               <string>4K 60fps</string>
               </property>
-             </widget>
-            </item>
-            <item row="3" column="0">
-             <widget class="QLabel" name="labelFontSize">
+             </item>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="labelRenderFps">
+             <property name="text">
+              <string>FPS:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QSpinBox" name="spinRenderFps">
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>120</number>
+             </property>
+             <property name="value">
+              <number>60</number>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="labelRenderFormat">
+             <property name="text">
+              <string>Format:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QComboBox" name="comboRenderFormat">
+             <item>
               <property name="text">
-               <string>Font Size:</string>
+               <string>mp4</string>
               </property>
-             </widget>
-            </item>
-            <item row="3" column="1">
-             <widget class="QSpinBox" name="spinFontSize">
-              <property name="minimum">
-               <number>8</number>
-              </property>
-              <property name="maximum">
-               <number>200</number>
-              </property>
-              <property name="value">
-               <number>48</number>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="0">
-             <widget class="QLabel" name="labelPosX">
+             </item>
+             <item>
               <property name="text">
-               <string>X:</string>
+               <string>gif</string>
               </property>
-             </widget>
-            </item>
-            <item row="4" column="1">
-             <widget class="QDoubleSpinBox" name="spinPosX">
-              <property name="decimals">
-               <number>2</number>
-              </property>
-              <property name="minimum">
-               <double>-8.000000000000000</double>
-              </property>
-              <property name="maximum">
-               <double>8.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.100000000000000</double>
-              </property>
-             </widget>
-            </item>
-            <item row="5" column="0">
-             <widget class="QLabel" name="labelPosY">
+             </item>
+             <item>
               <property name="text">
-               <string>Y:</string>
+               <string>png</string>
               </property>
-             </widget>
-            </item>
-            <item row="5" column="1">
-             <widget class="QDoubleSpinBox" name="spinPosY">
-              <property name="decimals">
-               <number>2</number>
-              </property>
-              <property name="minimum">
-               <double>-5.000000000000000</double>
-              </property>
-              <property name="maximum">
-               <double>5.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.100000000000000</double>
-              </property>
-             </widget>
-            </item>
-            <item row="6" column="0">
-             <spacer name="verticalSpacer_2">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>20</width>
-                <height>40</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
-          </widget>
-          <widget class="QWidget" name="propsShapePage">
-           <layout class="QFormLayout" name="propsShapeFormLayout">
-            <item row="0" column="0">
-             <widget class="QLabel" name="labelShapeName">
-              <property name="text">
-               <string>Name:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QLineEdit" name="editShapeName">
-              <property name="placeholderText">
-               <string>circle_1</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="labelShapeType">
-              <property name="text">
-               <string>Type:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLabel" name="labelShapeTypeValue">
-              <property name="text">
-               <string>Circle</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="labelStrokeColor">
-              <property name="text">
-               <string>Stroke:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
-             <widget class="QPushButton" name="btnStrokeColor">
-              <property name="styleSheet">
-               <string>background-color: #FFFFFF;</string>
-              </property>
-              <property name="text">
-               <string>#FFFFFF</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="0">
-             <widget class="QLabel" name="labelFillColor">
-              <property name="text">
-               <string>Fill:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="1">
-             <widget class="QPushButton" name="btnFillColor">
-              <property name="text">
-               <string>None</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="0">
-             <widget class="QLabel" name="labelStrokeWidth">
-              <property name="text">
-               <string>Width:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="1">
-             <widget class="QDoubleSpinBox" name="spinStrokeWidth">
-              <property name="minimum">
-               <double>0.500000000000000</double>
-              </property>
-              <property name="maximum">
-               <double>20.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.500000000000000</double>
-              </property>
-              <property name="value">
-               <double>2.000000000000000</double>
-              </property>
-             </widget>
-            </item>
-            <item row="5" column="0">
-             <widget class="QLabel" name="labelRadius">
-              <property name="text">
-               <string>Radius:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="5" column="1">
-             <widget class="QDoubleSpinBox" name="spinRadius">
-              <property name="minimum">
-               <double>0.100000000000000</double>
-              </property>
-              <property name="maximum">
-               <double>10.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.100000000000000</double>
-              </property>
-              <property name="value">
-               <double>1.000000000000000</double>
-              </property>
-             </widget>
-            </item>
-            <item row="6" column="0">
-             <widget class="QLabel" name="labelShapePosX">
-              <property name="text">
-               <string>X:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="6" column="1">
-             <widget class="QDoubleSpinBox" name="spinShapePosX">
-              <property name="decimals">
-               <number>2</number>
-              </property>
-              <property name="minimum">
-               <double>-8.000000000000000</double>
-              </property>
-              <property name="maximum">
-               <double>8.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.100000000000000</double>
-              </property>
-             </widget>
-            </item>
-            <item row="7" column="0">
-             <widget class="QLabel" name="labelShapePosY">
-              <property name="text">
-               <string>Y:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="7" column="1">
-             <widget class="QDoubleSpinBox" name="spinShapePosY">
-              <property name="decimals">
-               <number>2</number>
-              </property>
-              <property name="minimum">
-               <double>-5.000000000000000</double>
-              </property>
-              <property name="maximum">
-               <double>5.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.100000000000000</double>
-              </property>
-             </widget>
-            </item>
-            <item row="8" column="1">
-             <spacer name="verticalSpacer_3">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>20</width>
-                <height>40</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
-          </widget>
-          <widget class="QWidget" name="propsAnimPage">
-           <layout class="QFormLayout" name="propsAnimFormLayout">
-            <item row="0" column="0">
-             <widget class="QLabel" name="labelAnimTarget">
-              <property name="text">
-               <string>Target:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QComboBox" name="comboAnimTarget">
-              <property name="placeholderText" stdset="0">
-               <string>Select object...</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="labelPropAnimType">
-              <property name="text">
-               <string>Animation:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QComboBox" name="comboAnimTypeProps">
-              <item>
-               <property name="text">
-                <string>Add</string>
+             </item>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="labelOutputDir">
+             <property name="text">
+              <string>Output:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <layout class="QHBoxLayout" name="outputDirLayout">
+             <property name="spacing">
+              <number>2</number>
+             </property>
+             <item>
+              <widget class="QLineEdit" name="editOutputDir">
+               <property name="placeholderText">
+                <string>Default (media/)</string>
                </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>Wait</string>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnBrowseOutput">
+               <property name="maximumSize">
+                <size>
+                 <width>30</width>
+                 <height>16777215</height>
+                </size>
                </property>
-              </item>
-              <item>
                <property name="text">
-                <string>FadeIn</string>
+                <string>...</string>
                </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>FadeOut</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>Write</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>ShowCreation</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>Transform</string>
-               </property>
-              </item>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="labelPropDuration">
-              <property name="text">
-               <string>Duration:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
-             <widget class="QDoubleSpinBox" name="spinAnimDuration">
-              <property name="suffix">
-               <string>s</string>
-              </property>
-              <property name="minimum">
-               <double>0.100000000000000</double>
-              </property>
-              <property name="maximum">
-               <double>30.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.100000000000000</double>
-              </property>
-              <property name="value">
-               <double>1.000000000000000</double>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="0">
-             <widget class="QLabel" name="labelEasing">
-              <property name="text">
-               <string>Easing:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="1">
-             <widget class="QComboBox" name="comboEasing">
-              <item>
-               <property name="text">
-                <string>smooth</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>linear</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>rush_into</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>rush_from</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>there_and_back</string>
-               </property>
-              </item>
-             </widget>
-            </item>
-            <item row="4" column="0">
-             <spacer name="verticalSpacer">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>20</width>
-                <height>40</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
-          </widget>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="4" column="1">
+            <widget class="QCheckBox" name="checkOpenOnComplete">
+             <property name="text">
+              <string>Open on completion</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </widget>
         </item>
        </layout>

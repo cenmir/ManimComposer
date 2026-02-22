@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "manimgl>=1.7.0",
+    "manim>=0.18",
+    "pymupdf>=1.25",
     "numpy>=2.4.2",
     "pyqt6>=6.10.2",
     "audioop-lts",

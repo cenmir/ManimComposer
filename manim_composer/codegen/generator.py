@@ -100,6 +100,7 @@ def generate_manimgl_code(
     interactive: bool = False,
     replay_file: str = "",
     include_import: bool = True,
+    bg_color: str = "#000000",
 ) -> str:
     """Generate a complete ManimGL script from the current scene state."""
     lines: list[str] = []
@@ -109,6 +110,10 @@ def generate_manimgl_code(
         f"class {scene_name}(Scene):",
         "    def construct(self):",
     ]
+
+    if bg_color and bg_color.upper() != "#000000":
+        lines.append(f'        self.camera.background_rgba = color_to_rgba("{bg_color}")')
+        lines.append("")
 
     if interactive:
         lines.append("        # Lock 16:9 aspect ratio on resize")
@@ -151,6 +156,7 @@ def generate_manimce_code(
     scene_state: SceneState,
     scene_name: str = "ComposedScene",
     include_import: bool = True,
+    bg_color: str = "#000000",
 ) -> str:
     """Generate a complete Manim Community Edition script from the current scene state."""
     lines: list[str] = []
@@ -160,6 +166,10 @@ def generate_manimce_code(
         f"class {scene_name}(Scene):",
         "    def construct(self):",
     ]
+
+    if bg_color and bg_color.upper() != "#000000":
+        lines.append(f'        self.camera.background_color = "{bg_color}"')
+        lines.append("")
 
     body = _generate_body(scene_state, indent="        ", anim_map=_CE_ANIM_NAMES, ce=True)
     if not body:
