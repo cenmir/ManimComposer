@@ -1,6 +1,6 @@
 # Manim Composer
 
-A PowerPoint-style visual editor for creating [ManimGL](https://github.com/3b1b/manim) animations. Design scenes by placing and manipulating objects on a canvas, define animations, and export valid ManimGL Python code.
+A visual editor for creating [ManimGL](https://github.com/3b1b/manim) animations. Design scenes by placing and manipulating objects on a canvas, define animations, and export valid ManimGL Python code.
 
 ## Features
 

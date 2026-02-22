@@ -2,7 +2,7 @@
 
 ## What It Is
 
-A PowerPoint-style visual editor for creating [ManimGL](https://github.com/3b1b/manim) animations. Place LaTeX equations on a canvas, edit properties, add animations, generate valid ManimGL Python code, and preview in a live GL window.
+A visual editor for creating [ManimGL](https://github.com/3b1b/manim) animations. Place LaTeX equations on a canvas, edit properties, add animations, generate valid ManimGL Python code, and preview in a live GL window.
 
 **Target engine**: ManimGL (3b1b/manim) — the OpenGL version. Not Manim Community.
 

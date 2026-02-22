@@ -2,7 +2,7 @@
 
 ## Context
 
-We are building a **PowerPoint-style visual editor** for creating ManimGL animations. The user wants to visually compose scenes by placing and manipulating graphical objects on a canvas, define animations between them, and have the tool automatically generate valid ManimGL Python code. The target rendering engine is **Grant Sanderson's ManimGL** (`3b1b/manim`), which uses OpenGL for real-time rendering.
+We are building a **visual editor** for creating ManimGL animations. The user wants to visually compose scenes by placing and manipulating graphical objects on a canvas, define animations between them, and have the tool automatically generate valid ManimGL Python code. The target rendering engine is **Grant Sanderson's ManimGL** (`3b1b/manim`), which uses OpenGL for real-time rendering.
 
 The project directory is `c:\Users\mirza\Dropbox\Notes\Manim` — currently empty except for a workflow analysis document.
 
@@ -346,7 +346,7 @@ class Scene1(Scene):
 - Project model wired to scene panel
 - Thumbnail generation from canvas snapshots
 
-**Outcome**: Multiple scenes like PowerPoint slides, each with its own objects.
+**Outcome**: Multiple scenes, each with its own objects.
 
 ### Phase 6: Animation System
 - `views/animation_panel.py` — animation list
