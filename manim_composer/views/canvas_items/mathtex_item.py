@@ -11,6 +11,15 @@ from PyQt6.QtCore import Qt
 _CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
+def _latex_env():
+    """Return env dict with TinyTeX on PATH (lazy import to avoid circular deps)."""
+    try:
+        from manim_composer import latex_manager
+        return latex_manager.get_latex_env()
+    except Exception:
+        return None
+
+
 def _hex_to_dvipng_fg(color_hex: str) -> str:
     """Convert '#RRGGBB' to dvipng fg spec like 'rgb 1.000 1.000 1.000'."""
     c = QColor(color_hex)
@@ -37,11 +46,13 @@ def render_latex(latex: str, color: str = "#FFFFFF", dpi: int = 600) -> QPixmap 
             )
 
         try:
+            env = _latex_env()
             subprocess.run(
                 ["latex", "-interaction=nonstopmode",
                  f"-output-directory={tmp}", tex],
                 capture_output=True, timeout=30,
                 creationflags=_CREATE_NO_WINDOW,
+                env=env,
             )
             if not os.path.isfile(dvi):
                 return None
@@ -53,6 +64,7 @@ def render_latex(latex: str, color: str = "#FFFFFF", dpi: int = 600) -> QPixmap 
                  "-o", png, dvi],
                 capture_output=True, timeout=15,
                 creationflags=_CREATE_NO_WINDOW,
+                env=env,
             )
             if os.path.isfile(png):
                 return QPixmap(png)

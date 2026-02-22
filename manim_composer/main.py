@@ -1244,25 +1244,44 @@ class ManimComposerWindow(QMainWindow):
         self._updating_code = False
 
 
+def _apply_dark_theme(app: QApplication):
+    """Apply a dark Fusion palette so the UI matches Manim's dark canvas."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QColor, QPalette
+
+    app.setStyle("Fusion")
+    p = QPalette()
+    p.setColor(QPalette.ColorRole.Window,          QColor(45, 45, 45))
+    p.setColor(QPalette.ColorRole.WindowText,       QColor(208, 208, 208))
+    p.setColor(QPalette.ColorRole.Base,             QColor(30, 30, 30))
+    p.setColor(QPalette.ColorRole.AlternateBase,    QColor(45, 45, 45))
+    p.setColor(QPalette.ColorRole.ToolTipBase,      QColor(45, 45, 45))
+    p.setColor(QPalette.ColorRole.ToolTipText,      QColor(208, 208, 208))
+    p.setColor(QPalette.ColorRole.Text,             QColor(208, 208, 208))
+    p.setColor(QPalette.ColorRole.Button,           QColor(55, 55, 55))
+    p.setColor(QPalette.ColorRole.ButtonText,       QColor(208, 208, 208))
+    p.setColor(QPalette.ColorRole.BrightText,       QColor(255, 51, 51))
+    p.setColor(QPalette.ColorRole.Link,             QColor(42, 130, 218))
+    p.setColor(QPalette.ColorRole.Highlight,        QColor(42, 130, 218))
+    p.setColor(QPalette.ColorRole.HighlightedText,  QColor(0, 0, 0))
+    app.setPalette(p)
+
+
 def main():
     import signal
     app = QApplication(sys.argv)
     app.setApplicationName("Manim Composer")
+    _apply_dark_theme(app)
 
     # Let Ctrl+C close the app gracefully
     signal.signal(signal.SIGINT, lambda *_: app.quit())
 
+    # Put TinyTeX at the front of PATH before anything tries to render LaTeX.
+    # TinyTeX is installed by the PowerShell installer — not at runtime.
+    latex_manager.ensure_path()
+
     window = ManimComposerWindow()
     window.show()
-
-    # Ensure TinyTeX is installed — it's the standard LaTeX for Manim Composer
-    if not latex_manager.tinytex_ready():
-        if latex_manager.offer_install(window):
-            if latex_manager.run_install(window):
-                MathTexItem._latex_available = None
-
-    # Put TinyTeX at the front of PATH (shadows system LaTeX)
-    latex_manager.ensure_path()
 
     sys.exit(app.exec())
 

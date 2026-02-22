@@ -1,5 +1,5 @@
 # Manim Composer — Main Installer
-# Installs uv, Python 3.13, and Manim Composer with shortcuts.
+# Installs uv, Python 3.13, Manim Composer, and TinyTeX with shortcuts.
 # Called by install.ps1 (bootstrap) with -SourceDir pointing to the extracted repo.
 
 param(
@@ -16,13 +16,22 @@ $InstallBase = Join-Path $env:LOCALAPPDATA "ManimComposer"
 $AppDir      = Join-Path $InstallBase "app"
 $LauncherCmd = Join-Path $InstallBase "manim-composer.cmd"
 
+# TinyTeX paths (must match latex_manager.py constants)
+$TinyTeXDir = Join-Path $InstallBase "TinyTeX"
+$TinyTeXBin = Join-Path $TinyTeXDir "bin\windows"
+$TinyTeXUrl = "https://yihui.org/tinytex/TinyTeX-0.zip"
+$TinyTeXPackages = @(
+    "latex-bin", "dvipng", "dvisvgm", "dvipdfmx",
+    "standalone", "preview", "amsmath", "amsfonts", "babel-english"
+)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 1: Install uv
 # ─────────────────────────────────────────────────────────────────────────────
 
 function Install-Uv {
     Write-Host ""
-    Write-Host "[1/5] Checking for uv..." -ForegroundColor Cyan
+    Write-Host "[1/6] Checking for uv..." -ForegroundColor Cyan
 
     $uvLocalBin = Join-Path $env:USERPROFILE ".local\bin"
     $uvExe      = Join-Path $uvLocalBin "uv.exe"
@@ -60,7 +69,7 @@ function Install-Uv {
 
 function Install-Python {
     Write-Host ""
-    Write-Host "[2/5] Installing Python 3.13..." -ForegroundColor Cyan
+    Write-Host "[2/6] Installing Python 3.13..." -ForegroundColor Cyan
 
     uv python install 3.13 --default
     if ($LASTEXITCODE -ne 0) {
@@ -82,7 +91,7 @@ function Install-Python {
 
 function Install-App {
     Write-Host ""
-    Write-Host "[3/5] Installing Manim Composer..." -ForegroundColor Cyan
+    Write-Host "[3/6] Installing Manim Composer..." -ForegroundColor Cyan
 
     # Create install directory
     New-Item -ItemType Directory -Path $InstallBase -Force | Out-Null
@@ -126,12 +135,72 @@ function Install-App {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 4: Create launcher script
+# Step 4: Install TinyTeX
+# ─────────────────────────────────────────────────────────────────────────────
+
+function Install-TinyTeX {
+    Write-Host ""
+    Write-Host "[4/6] Installing TinyTeX..." -ForegroundColor Cyan
+
+    $tlmgr = Join-Path $TinyTeXBin "tlmgr.bat"
+
+    # Skip if already installed and complete
+    if ((Test-Path $tlmgr) -and (Test-Path (Join-Path $TinyTeXBin "latex.exe")) -and
+        (Test-Path (Join-Path $TinyTeXBin "dvipng.exe")) -and
+        (Test-Path (Join-Path $TinyTeXBin "dvipdfmx.exe"))) {
+        Write-Host "  TinyTeX already installed and complete" -ForegroundColor Green
+        return
+    }
+
+    # Download
+    $zipPath = Join-Path $env:TEMP "TinyTeX-0.zip"
+    Write-Host "  Downloading TinyTeX (~45 MB)..."
+    $ProgressPreference = 'SilentlyContinue'
+    Invoke-WebRequest -Uri $TinyTeXUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 120
+    $ProgressPreference = 'Continue'
+
+    if (-not (Test-Path $zipPath)) {
+        throw "TinyTeX download failed"
+    }
+
+    # Extract (ZIP contains a TinyTeX/ folder at root)
+    Write-Host "  Extracting..."
+    New-Item -ItemType Directory -Path $InstallBase -Force | Out-Null
+    if (Test-Path $TinyTeXDir) {
+        Remove-Item $TinyTeXDir -Recurse -Force
+    }
+    Expand-Archive -Path $zipPath -DestinationPath $InstallBase -Force
+    Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+
+    if (-not (Test-Path $tlmgr)) {
+        throw "TinyTeX extraction failed - tlmgr.bat not found at $TinyTeXBin"
+    }
+
+    # Install required TeX packages
+    Write-Host "  Installing LaTeX packages (this may take a minute)..."
+    & $tlmgr install @TinyTeXPackages
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  Warning: tlmgr exited with code $LASTEXITCODE (some packages may already be installed)" -ForegroundColor Yellow
+    }
+
+    # Verify critical binaries
+    foreach ($exe in @("latex.exe", "dvipng.exe", "dvipdfmx.exe")) {
+        $exePath = Join-Path $TinyTeXBin $exe
+        if (-not (Test-Path $exePath)) {
+            throw "TinyTeX package install failed - $exe not found at $TinyTeXBin"
+        }
+    }
+
+    Write-Host "  TinyTeX installed to $TinyTeXDir" -ForegroundColor Green
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Step 5: Create launcher script
 # ─────────────────────────────────────────────────────────────────────────────
 
 function Create-Launcher {
     Write-Host ""
-    Write-Host "[4/5] Creating launcher..." -ForegroundColor Cyan
+    Write-Host "[5/6] Creating launcher..." -ForegroundColor Cyan
 
     $uvExe = (Get-Command uv -ErrorAction SilentlyContinue).Path
     if (-not $uvExe) {
@@ -159,12 +228,12 @@ WshShell.Run """$uvExe"" run manim-composer", 0, False
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 5: Create shortcuts and add to PATH
+# Step 6: Create shortcuts and add to PATH
 # ─────────────────────────────────────────────────────────────────────────────
 
 function Create-Shortcuts {
     Write-Host ""
-    Write-Host "[5/5] Creating shortcuts..." -ForegroundColor Cyan
+    Write-Host "[6/6] Creating shortcuts..." -ForegroundColor Cyan
 
     $vbsPath = Join-Path $InstallBase "manim-composer.vbs"
     $WshShell = New-Object -ComObject WScript.Shell
@@ -244,6 +313,7 @@ function Copy-FilteredDirectory([string]$Source, [string]$Destination, [string[]
 Install-Uv
 Install-Python
 Install-App
+Install-TinyTeX
 Create-Launcher
 Create-Shortcuts
 
