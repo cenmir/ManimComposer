@@ -1,5 +1,5 @@
 # Manim Composer — Main Installer
-# Installs uv, Python 3.13, Manim Composer, and TinyTeX with shortcuts.
+# Installs uv, Python 3.13, Manim Composer, TinyTeX, and ffmpeg with shortcuts.
 # Called by install.ps1 (bootstrap) with -SourceDir pointing to the extracted repo.
 
 param(
@@ -25,13 +25,17 @@ $TinyTeXPackages = @(
     "standalone", "preview", "amsmath", "amsfonts", "babel-english"
 )
 
+# ffmpeg paths
+$FfmpegDir = Join-Path $InstallBase "ffmpeg"
+$FfmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 1: Install uv
 # ─────────────────────────────────────────────────────────────────────────────
 
 function Install-Uv {
     Write-Host ""
-    Write-Host "[1/6] Checking for uv..." -ForegroundColor Cyan
+    Write-Host "[1/7] Checking for uv..." -ForegroundColor Cyan
 
     $uvLocalBin = Join-Path $env:USERPROFILE ".local\bin"
     $uvExe      = Join-Path $uvLocalBin "uv.exe"
@@ -69,7 +73,7 @@ function Install-Uv {
 
 function Install-Python {
     Write-Host ""
-    Write-Host "[2/6] Installing Python 3.13..." -ForegroundColor Cyan
+    Write-Host "[2/7] Installing Python 3.13..." -ForegroundColor Cyan
 
     uv python install 3.13 --default
     if ($LASTEXITCODE -ne 0) {
@@ -91,7 +95,7 @@ function Install-Python {
 
 function Install-App {
     Write-Host ""
-    Write-Host "[3/6] Installing Manim Composer..." -ForegroundColor Cyan
+    Write-Host "[3/7] Installing Manim Composer..." -ForegroundColor Cyan
 
     # Create install directory
     New-Item -ItemType Directory -Path $InstallBase -Force | Out-Null
@@ -140,7 +144,7 @@ function Install-App {
 
 function Install-TinyTeX {
     Write-Host ""
-    Write-Host "[4/6] Installing TinyTeX..." -ForegroundColor Cyan
+    Write-Host "[4/7] Installing TinyTeX..." -ForegroundColor Cyan
 
     $tlmgr = Join-Path $TinyTeXBin "tlmgr.bat"
 
@@ -195,12 +199,67 @@ function Install-TinyTeX {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 5: Create launcher script
+# Step 5: Install ffmpeg
+# ─────────────────────────────────────────────────────────────────────────────
+
+function Install-Ffmpeg {
+    Write-Host ""
+    Write-Host "[5/7] Installing ffmpeg..." -ForegroundColor Cyan
+
+    $ffmpegExe = Join-Path $FfmpegDir "ffmpeg.exe"
+
+    # Skip if already installed
+    if (Test-Path $ffmpegExe) {
+        Write-Host "  ffmpeg already installed" -ForegroundColor Green
+        return
+    }
+
+    # Download
+    $zipPath = Join-Path $env:TEMP "ffmpeg.zip"
+    Write-Host "  Downloading ffmpeg (~90 MB)..."
+    $ProgressPreference = 'SilentlyContinue'
+    Invoke-WebRequest -Uri $FfmpegUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 300
+    $ProgressPreference = 'Continue'
+
+    if (-not (Test-Path $zipPath)) {
+        throw "ffmpeg download failed"
+    }
+
+    # Extract to temp, then copy just the bin/ contents
+    Write-Host "  Extracting..."
+    $extractDir = Join-Path $env:TEMP "ffmpeg-extract-$(Get-Random)"
+    Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+    Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+
+    # The ZIP contains a folder like ffmpeg-master-latest-win64-gpl/bin/
+    $binDir = Get-ChildItem -Path $extractDir -Recurse -Filter "ffmpeg.exe" |
+        Select-Object -First 1 | ForEach-Object { $_.DirectoryName }
+
+    if (-not $binDir) {
+        Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+        throw "ffmpeg extraction failed - ffmpeg.exe not found in archive"
+    }
+
+    # Copy ffmpeg.exe, ffprobe.exe to our install dir
+    New-Item -ItemType Directory -Path $FfmpegDir -Force | Out-Null
+    Copy-Item (Join-Path $binDir "ffmpeg.exe")  $FfmpegDir -Force
+    Copy-Item (Join-Path $binDir "ffprobe.exe") $FfmpegDir -Force -ErrorAction SilentlyContinue
+    Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+
+    if (-not (Test-Path $ffmpegExe)) {
+        throw "ffmpeg installation failed"
+    }
+
+    Write-Host "  ffmpeg installed to $FfmpegDir" -ForegroundColor Green
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Step 6: Create launcher script
 # ─────────────────────────────────────────────────────────────────────────────
 
 function Create-Launcher {
     Write-Host ""
-    Write-Host "[5/6] Creating launcher..." -ForegroundColor Cyan
+    Write-Host "[6/7] Creating launcher..." -ForegroundColor Cyan
 
     $uvExe = (Get-Command uv -ErrorAction SilentlyContinue).Path
     if (-not $uvExe) {
@@ -208,17 +267,22 @@ function Create-Launcher {
     }
 
     # .cmd launcher for shortcuts and command line
+    # Puts ffmpeg on PATH so Manim CE can encode video
     $cmdContent = @"
 @echo off
+set "PATH=$FfmpegDir;%PATH%"
 cd /d "$AppDir"
 "$uvExe" run manim-composer %*
 "@
     Set-Content -Path $LauncherCmd -Value $cmdContent -Encoding ASCII
 
     # .vbs launcher for shortcuts (hides the console window)
+    # Also prepends ffmpeg dir to PATH so Manim CE can encode video
     $vbsPath = Join-Path $InstallBase "manim-composer.vbs"
     $vbsContent = @"
 Set WshShell = CreateObject("WScript.Shell")
+Set WshEnv = WshShell.Environment("Process")
+WshEnv("PATH") = "$FfmpegDir;" & WshEnv("PATH")
 WshShell.CurrentDirectory = "$AppDir"
 WshShell.Run """$uvExe"" run manim-composer", 0, False
 "@
@@ -228,12 +292,12 @@ WshShell.Run """$uvExe"" run manim-composer", 0, False
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 6: Create shortcuts and add to PATH
+# Step 7: Create shortcuts and add to PATH
 # ─────────────────────────────────────────────────────────────────────────────
 
 function Create-Shortcuts {
     Write-Host ""
-    Write-Host "[6/6] Creating shortcuts..." -ForegroundColor Cyan
+    Write-Host "[7/7] Creating shortcuts..." -ForegroundColor Cyan
 
     $vbsPath = Join-Path $InstallBase "manim-composer.vbs"
     $WshShell = New-Object -ComObject WScript.Shell
@@ -314,6 +378,7 @@ Install-Uv
 Install-Python
 Install-App
 Install-TinyTeX
+Install-Ffmpeg
 Create-Launcher
 Create-Shortcuts
 

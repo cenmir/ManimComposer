@@ -1058,8 +1058,28 @@ class ManimComposerWindow(QMainWindow):
         self._dock_hwnd = None
         self.btnDockPreview.setChecked(False)
         if exit_code != 0:
-            self.statusBar.showMessage(f"Preview failed (exit {exit_code})", 5000)
             self.centerTabBar.setCurrentIndex(3)  # switch to Console tab
+            # Check console output for known errors and show helpful messages
+            console_text = self.consolePane.toPlainText()
+            if "ContextException" in console_text or "Unable to share contexts" in console_text:
+                self.statusBar.showMessage("Preview failed — OpenGL not available", 5000)
+                msg = (
+                    "\n--- Manim Composer ---\n"
+                    "OpenGL error: your GPU driver does not support the OpenGL "
+                    "context that ManimGL requires.\n"
+                    "Possible fixes:\n"
+                    "  1. Install/update your GPU drivers (NVIDIA, AMD, or Intel)\n"
+                    "  2. If running in a VM, enable GPU passthrough / RemoteFX\n"
+                    "  3. Use 'Render' instead of 'Preview' (renders to file, "
+                    "no GPU needed)\n"
+                )
+                cursor = self.consolePane.textCursor()
+                cursor.movePosition(QTextCursor.MoveOperation.End)
+                cursor.insertText(msg)
+                self.consolePane.setTextCursor(cursor)
+                self.consolePane.ensureCursorVisible()
+            else:
+                self.statusBar.showMessage(f"Preview failed (exit {exit_code})", 5000)
         else:
             self.statusBar.showMessage("Preview finished", 3000)
 
